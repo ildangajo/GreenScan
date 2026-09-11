@@ -98,3 +98,11 @@ export interface LoginResponse {
   expires_at: string;
   display_name: string | null;
 }
+
+export interface GeocodeResponse {
+  region_id: string;
+  hdd_lookup_key: string;
+  latitude: number;
+  longitude: number;
+  road_address: string | null;
+}

@@ -1,8 +1,12 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import layersIcon from "./assets/layers.svg";
 import chevronLeftIcon from "./assets/chevron-left.svg";
 import chevronDownIcon from "./assets/chevron-down.svg";
+import { ApiError } from "../../api/client";
+import { geocodeAddress } from "../../api/map";
+import { getReferenceOptions } from "../../api/reference";
+import type { ConstructionYearRangeOption } from "../../api/types";
 
 /**
  * "AI 분석하기" 시작 화면 — 홈 히어로 배너의 "AI 진단 시작하기"를 누르면 들어오는
@@ -11,23 +15,33 @@ import chevronDownIcon from "./assets/chevron-down.svg";
  * 입력창 배경, rgba(47,203,170,0.3) 선택 필 배경 등). 건물 용도에서 "공공"은
  * 요청에 따라 제외했다(Figma엔 있지만 PM 지시로 뺌).
  *
- * 주의:
- * - 기존 5단계 MVP 플로우(features/space-input, features/vision-analysis)와는
- *   아직 데이터로 연결돼 있지 않다. 이 화면의 필드(주소/용도/면적/연도/사진)는
- *   기존 DiagnosisContext 스키마(건물유형/공간유형/치수 등)와 항목이 달라서,
- *   PM이 두 플로우의 관계(이 화면이 기존 1단계를 대체하는지, 별도 화면인지)를
- *   확정하기 전까지는 로컬 state로만 값을 들고 있고 "분석 시작하기"는 실제
- *   제출/다음 화면 연결 없이 TODO로 남겨둔다.
- * - 라우팅도 같은 이유로 /start 를 그대로 가리키게 하지 않고 별도 경로
- *   (/ai-diagnosis)로 붙였다. 기존 /start(건물유형 선택) 화면은 그대로 살아있다.
+ * 백엔드(2026-09-11 시드 완료) 연동 현황:
+ * - 건물 연도: /api/v1/reference/options의 construction_year_ranges를 그대로
+ *   쓴다. 지금은 시드가 "2016.07~2023.02"/"2023.02 이후" 두 구간만 있어서
+ *   목록이 짧다 — 데이터가 늘면 자동으로 반영된다.
+ * - 건물 주소: 입력 후 "확인"을 누르면 /api/v1/map/geocode로 실제 지역을
+ *   조회한다. ⚠️ 이 엔드포인트는 로그인이 필요한데(OpenAPI 스키마엔 optional로
+ *   보이지만 실제로는 401) 이 브랜치엔 로그인 플로우가 아직 없어서
+ *   (feat/fe-auth-login 브랜치 작업 중) 지금은 항상 "로그인이 필요합니다"가
+ *   뜬다 — 로그인이 합류하면 바로 동작한다.
+ * - 건물 용도(주거/상업업무/기타), 건물 면적(㎡ 구간): reference/options
+ *   응답에 대응하는 필드가 아예 없다. 로컬 state로만 유지 — PM/백엔드와
+ *   이 두 항목을 뭘로 저장할지 먼저 정해야 한다.
+ * - "분석 시작하기": 계산 엔진(POST /api/v1/diagnoses가 요구하는
+ *   calculation_result)이 아직 없어서 실제 제출은 TODO로 남겨둔다.
  */
 
 const BUILDING_PURPOSES = ["주거", "상업/업무", "기타"] as const;
 const BUILDING_AREAS = ["1,000~2,000㎡", "2,000~4,000㎡", "4,000㎡ 이상"] as const;
-const BUILDING_YEARS = Array.from({ length: 46 }, (_, i) => `${2025 - i}년`);
 
 type BuildingPurpose = (typeof BUILDING_PURPOSES)[number];
 type BuildingArea = (typeof BUILDING_AREAS)[number];
+
+type AddressCheck =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "ok"; regionId: string }
+  | { status: "error"; message: string };
 
 /** 선택형 필(pill) 버튼 — 선택 시 배경만 teal 톤으로 바뀌고 글자색은 그대로(#535353) 유지된다 */
 function PillOption({
@@ -58,13 +72,36 @@ export default function AiDiagnosisStartPage() {
 
   const [photos, setPhotos] = useState<File[]>([]);
   const [address, setAddress] = useState("");
+  const [addressCheck, setAddressCheck] = useState<AddressCheck>({ status: "idle" });
   const [purpose, setPurpose] = useState<BuildingPurpose>("상업/업무");
   const [area, setArea] = useState<BuildingArea>("1,000~2,000㎡");
   const [year, setYear] = useState("");
+  const [yearOptions, setYearOptions] = useState<ConstructionYearRangeOption[]>([]);
+
+  useEffect(() => {
+    getReferenceOptions()
+      .then((res) => setYearOptions(res.construction_year_ranges))
+      .catch((err) => console.error("reference/options 조회 실패", err));
+  }, []);
 
   const handlePhotoPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) setPhotos(files);
+  };
+
+  const handleAddressCheck = async () => {
+    if (!address.trim()) return;
+    setAddressCheck({ status: "checking" });
+    try {
+      const res = await geocodeAddress(address.trim());
+      setAddressCheck({ status: "ok", regionId: res.region_id });
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? ((err.body as { detail?: { message?: string } } | null)?.detail?.message ?? err.message)
+          : "주소 확인에 실패했습니다.";
+      setAddressCheck({ status: "error", message });
+    }
   };
 
   return (
@@ -114,21 +151,39 @@ export default function AiDiagnosisStartPage() {
           </div>
         </div>
 
-        {/* 건물 주소 */}
+        {/* 건물 주소 — "확인" 누르면 실제 지역 조회(/api/v1/map/geocode) */}
         <div className="mt-8 flex flex-col gap-3">
           <label htmlFor="address" className="text-[15px] font-semibold text-[#535353]">
             건물 주소 입력
           </label>
-          <div className="rounded-[20px] bg-white p-[3px] shadow-[0px_2px_8px_0px_rgba(0,0,0,0.1)]">
+          <div className="flex items-center gap-2 rounded-[20px] bg-white p-[3px] shadow-[0px_2px_8px_0px_rgba(0,0,0,0.1)]">
             <input
               id="address"
               type="text"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => {
+                setAddress(e.target.value);
+                if (addressCheck.status !== "idle") setAddressCheck({ status: "idle" });
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleAddressCheck()}
               placeholder="예) 서울시 마포구 월드컵로 12"
-              className="h-[45px] w-full rounded-[20px] bg-[rgba(190,190,190,0.1)] px-[9px] text-[15px] font-medium text-[#535353] placeholder:text-[rgba(83,83,83,0.5)] outline-none"
+              className="h-[45px] min-w-0 flex-1 rounded-[20px] bg-[rgba(190,190,190,0.1)] px-[9px] text-[15px] font-medium text-[#535353] placeholder:text-[rgba(83,83,83,0.5)] outline-none"
             />
+            <button
+              type="button"
+              onClick={handleAddressCheck}
+              disabled={addressCheck.status === "checking" || !address.trim()}
+              className="mr-1 shrink-0 rounded-full bg-[#2fcbaa] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-40"
+            >
+              {addressCheck.status === "checking" ? "확인 중" : "확인"}
+            </button>
           </div>
+          {addressCheck.status === "ok" && (
+            <p className="text-[12px] font-medium text-[#176b52]">지원 지역 확인됨 ({addressCheck.regionId})</p>
+          )}
+          {addressCheck.status === "error" && (
+            <p className="text-[12px] font-medium text-red-500">{addressCheck.message}</p>
+          )}
         </div>
 
         {/* 건물 용도 */}
@@ -166,9 +221,9 @@ export default function AiDiagnosisStartPage() {
               <option value="" disabled className="text-[rgba(83,83,83,0.5)]">
                 선택해주세요
               </option>
-              {BUILDING_YEARS.map((y) => (
-                <option key={y} value={y}>
-                  {y}
+              {yearOptions.map((y) => (
+                <option key={y.value} value={y.value}>
+                  {y.label}
                 </option>
               ))}
             </select>

@@ -87,6 +87,8 @@ jobs:
           python -m app.db.seed.seed_target_u_values
           python -m app.db.seed.seed_hdd_regions
           python -m app.db.seed.seed_construction_year_wall_u
+          python -m app.db.seed.seed_envelope_u_values
+          python -m app.db.seed.seed_energy_efficiency_bands
 
       - name: Run tests
         run: python -m pytest -q

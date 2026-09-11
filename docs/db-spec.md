@@ -628,6 +628,7 @@ Ref: calculation_result_message_policies.calculation_policy_id > calculation_pol
 | 실제 계산 시나리오 2~3개의 목록·이름·구성 | PRD는 창호·벽체·복합 개선 예시를 들지만 확정 목록은 없음 | `calculation_scenarios`, `calculation_scenario_components` |
 | 결과 문구의 정확한 종류와 문구 내용 | PRD는 결과 문구 정책 보존을 요구하지만 문구 목록은 미정 | `calculation_result_message_policies` |
 | `reference_data_missing` 응답의 상세 형식과 HTTP 상태 코드 | PRD는 오류 원칙만 정의 | API 명세, 계산 엔진 |
+| **(v8.2 신규)** 정성적 등급(긴급/주의/권장) 산정 임계값 | PRD v8.2가 등급 표시를 재도입했으나 "기준선 대비 몇 %면 긴급인지" 같은 구체적 임계값은 정하지 않음(멘토링 피드백 반영 과정에서 표시 방식만 결정됨). 임의로 만들지 않고 BE-C·PM 확인 필요 | 신규 테이블 필요 (예: `severity_grade_policies`) — 아직 스키마 설계 전 |
 
 이 목록의 값이 확정되기 전에도 마이그레이션과 Mock 구조는 만들 수 있다. 단, 실제 U값·HDD가 필요한 계산 완료 시연은 해당 기준 데이터 시드가 검증되기 전에는 완료로 처리하면 안 된다.
 

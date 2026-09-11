@@ -9,11 +9,16 @@ import {
 } from "../../state/DiagnosisContext";
 import { analyzePhoto, type PhotoAnalysisResponse, type PhotoCategory } from "../../api/photos";
 import { ApiError } from "../../api/http";
+import { checkPhotoBlur } from "./blurDetection";
 
 /**
  * 화면 3: 사진 업로드 + AI 후보 확인 (원래 5단계였던 "사진 업로드"/"AI 확인"을
  * 합쳤다 — POST /api/v1/photos/analyze가 사진 1장당 즉시 후보를 돌려주는
  * 동기 API라서 업로드와 확인을 두 화면으로 나눌 이유가 없었다).
+ *
+ * api-spec.md 5.0절: 흐린 사진은 POST /api/v1/photos/analyze 호출 전
+ * 클라이언트에서 먼저 걸러 재촬영을 안내한다(서버 판정을 대체하지 않음,
+ * blurDetection.ts 참고). 블러로 판정돼도 강제로 계속 진행할 수 있다.
  *
  * 사진 없이도 다음 단계로 진행할 수 있다(PRD) — 그 경우 아래 확정 칩들은
  * 그냥 수동으로 고르면 된다. window_type_candidate/visible_anomaly_candidate가
@@ -40,6 +45,8 @@ const ANOMALY_OPTIONS: { value: AnomalyConfirm; label: string }[] = [
 
 type SlotState =
   | { status: "empty" }
+  | { status: "checking_blur"; fileName: string }
+  | { status: "blurry"; fileName: string; file: File }
   | { status: "analyzing"; fileName: string }
   | { status: "done"; fileName: string; result: PhotoAnalysisResponse }
   | { status: "error"; fileName: string; message: string };
@@ -51,7 +58,7 @@ export default function PhotoUploadPage() {
   const [windowSlot, setWindowSlot] = useState<SlotState>({ status: "empty" });
   const [wallSlot, setWallSlot] = useState<SlotState>({ status: "empty" });
 
-  const handlePick = async (category: PhotoCategory, file: File) => {
+  const runAnalyze = async (category: PhotoCategory, file: File) => {
     const setSlot = category === "window" ? setWindowSlot : setWallSlot;
     setSlot({ status: "analyzing", fileName: file.name });
     try {
@@ -70,6 +77,22 @@ export default function PhotoUploadPage() {
     }
   };
 
+  const handlePick = async (category: PhotoCategory, file: File) => {
+    const setSlot = category === "window" ? setWindowSlot : setWallSlot;
+    setSlot({ status: "checking_blur", fileName: file.name });
+    try {
+      const { isBlurry } = await checkPhotoBlur(file);
+      if (isBlurry) {
+        setSlot({ status: "blurry", fileName: file.name, file });
+        return;
+      }
+    } catch {
+      // 블러 체크 자체가 실패해도(브라우저 호환성 등) 서버 분석은 계속 진행한다 —
+      // 이건 어디까지나 사전 안내용 보조 체크일 뿐이다.
+    }
+    await runAnalyze(category, file);
+  };
+
   return (
     <StepLayout
       step={3}
@@ -84,6 +107,7 @@ export default function PhotoUploadPage() {
           category="window"
           slot={windowSlot}
           onPick={(file) => handlePick("window", file)}
+          onForceContinue={() => windowSlot.status === "blurry" && runAnalyze("window", windowSlot.file)}
         />
         {windowSlot.status === "done" && (
           <section className="-mt-3 rounded-lg border border-neutral-200 p-4">
@@ -102,7 +126,13 @@ export default function PhotoUploadPage() {
           </section>
         )}
 
-        <PhotoSlot label="벽체 사진" category="wall" slot={wallSlot} onPick={(file) => handlePick("wall", file)} />
+        <PhotoSlot
+          label="벽체 사진"
+          category="wall"
+          slot={wallSlot}
+          onPick={(file) => handlePick("wall", file)}
+          onForceContinue={() => wallSlot.status === "blurry" && runAnalyze("wall", wallSlot.file)}
+        />
         {wallSlot.status === "done" && (
           <section className="-mt-3 rounded-lg border border-neutral-200 p-4">
             <ChipGroup
@@ -161,27 +191,31 @@ function PhotoSlot({
   category,
   slot,
   onPick,
+  onForceContinue,
 }: {
   label: string;
   category: PhotoCategory;
   slot: SlotState;
   onPick: (file: File) => void;
+  onForceContinue: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const busy = slot.status === "checking_blur" || slot.status === "analyzing";
 
   return (
     <div>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        disabled={slot.status === "analyzing"}
+        disabled={busy}
         className="flex w-full items-center justify-between rounded-lg border border-neutral-300 px-4 py-3 text-left disabled:opacity-60"
       >
         <span className="text-sm font-medium">{label}</span>
         <span className="text-xs text-neutral-500">
           {slot.status === "empty" && "사진 선택"}
+          {slot.status === "checking_blur" && "사진 확인 중..."}
           {slot.status === "analyzing" && "분석 중..."}
-          {(slot.status === "done" || slot.status === "error") && slot.fileName}
+          {(slot.status === "done" || slot.status === "error" || slot.status === "blurry") && slot.fileName}
         </span>
       </button>
       <input
@@ -192,9 +226,31 @@ function PhotoSlot({
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) onPick(file);
+          e.target.value = "";
         }}
       />
 
+      {slot.status === "blurry" && (
+        <div className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <p className="font-semibold">사진이 흐려서 인식이 어려울 수 있어요.</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="rounded-full border border-amber-600 px-3 py-1 text-[11px] font-medium text-amber-700"
+            >
+              다시 촬영
+            </button>
+            <button
+              type="button"
+              onClick={onForceContinue}
+              className="rounded-full bg-amber-600 px-3 py-1 text-[11px] font-medium text-white"
+            >
+              그래도 분석하기
+            </button>
+          </div>
+        </div>
+      )}
       {slot.status === "done" && (
         <div className="mt-2 rounded-md bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
           {slot.result.photo_quality === "retake_required" && (

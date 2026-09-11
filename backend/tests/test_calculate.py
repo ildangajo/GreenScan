@@ -5,7 +5,7 @@
 
 시드값 기준 (2026-09-11 기준 실제 시드):
 - current_window_u_value(double, unknown) = 3.4
-- current_wall_u_value(2016_2023, good) = 0.260
+- current_wall_u_value(2016_2018, good) = 0.260
 - target_window_u_value(apartment_group, jungbu-2) = 1.000
 - target_wall_u_value(apartment_group, jungbu-2) = 0.170
 - hdd(seoul) = 2380.1
@@ -26,7 +26,7 @@ def _valid_payload(**overrides):
         "building": {
             "building_type": "apartment",
             "representative_space_type": "living_room",
-            "construction_year_range": "2016_2023",
+            "construction_year_range": "2016_2018",
         },
         "space": {
             "width_m": 4.2,
@@ -122,7 +122,7 @@ def test_invalid_building_type_returns_400(client):
             building={
                 "building_type": "commercial",
                 "representative_space_type": "living_room",
-                "construction_year_range": "2016_2023",
+                "construction_year_range": "2016_2018",
             }
         ),
     )

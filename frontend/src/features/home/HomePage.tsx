@@ -31,21 +31,22 @@ interface RecentBuilding {
   title: string;
   date: string;
   reductionRate: number;
-  costText: string;
   thumb?: string;
 }
 
+// PRD v8.1: 견적/비용 표시는 완전히 제외 대상이라 costText 필드 자체를 없앴다.
+// PRD 3.2: 상가는 제외 대상이라 목업에서도 상가 항목을 빼고 주택 계열로 교체했다.
 const MOCK_RECENT: RecentBuilding[] = [
-  { id: "1", title: "서울시 강남구 OO빌딩", date: "2026.07.02", reductionRate: 0.52, costText: "1,300만원", thumb: buildingGangnam },
-  { id: "2", title: "서울시 강북구 OO카페", date: "2024.04.22", reductionRate: 0.24, costText: "620만원", thumb: buildingGangbuk },
-  { id: "3", title: "서울시 강서구 OO빌라", date: "2025.11.12", reductionRate: 0.21, costText: "430만원" },
-  { id: "4", title: "서울시 송파구 OO빌딩", date: "2026.09.09", reductionRate: 0.6, costText: "1,850만원" },
+  { id: "1", title: "서울시 강남구 OO빌딩", date: "2026.07.02", reductionRate: 0.52, thumb: buildingGangnam },
+  { id: "2", title: "서울시 강북구 OO주택", date: "2024.04.22", reductionRate: 0.24, thumb: buildingGangbuk },
+  { id: "3", title: "서울시 강서구 OO빌라", date: "2025.11.12", reductionRate: 0.21 },
+  { id: "4", title: "서울시 송파구 OO빌딩", date: "2026.09.09", reductionRate: 0.6 },
   // 아래는 스크롤 동작(고정 헤더 + 리스트 스크롤) 테스트용으로 추가한 목업 항목.
   // 실제 이력 API 연결 시 이 배열 전체가 교체된다.
-  { id: "5", title: "서울시 서초구 OO오피스텔", date: "2026.03.15", reductionRate: 0.38, costText: "980만원" },
-  { id: "6", title: "서울시 마포구 OO상가", date: "2025.08.21", reductionRate: 0.45, costText: "1,120만원" },
-  { id: "7", title: "서울시 영등포구 OO빌딩", date: "2024.12.02", reductionRate: 0.29, costText: "760만원" },
-  { id: "8", title: "서울시 성동구 OO주택", date: "2026.01.30", reductionRate: 0.55, costText: "1,470만원" },
+  { id: "5", title: "서울시 서초구 OO오피스텔", date: "2026.03.15", reductionRate: 0.38 },
+  { id: "6", title: "서울시 마포구 OO빌라", date: "2025.08.21", reductionRate: 0.45 },
+  { id: "7", title: "서울시 영등포구 OO빌딩", date: "2024.12.02", reductionRate: 0.29 },
+  { id: "8", title: "서울시 성동구 OO주택", date: "2026.01.30", reductionRate: 0.55 },
 ];
 
 const FAB_MENU_ITEMS = [
@@ -254,13 +255,11 @@ function RecentBuildingCard({ building }: { building: RecentBuilding }) {
           <span className="text-[8px] font-semibold text-[#535353]/80">{building.date}</span>
         </div>
         <div className="mt-[4px] flex gap-[3px]">
+          {/* PRD v8.1: 견적/비용은 표시 대상이 아니라 "예상 비용" 카드는 없앴다.
+              에너지 절감률 카드만 유지 — 폭은 이전 2칸 레이아웃과 맞춰둠. */}
           <div className="h-[39px] w-[81px] shrink-0 rounded-[10px] bg-white px-[7px] pt-[4px] shadow-[0px_2px_8px_0px_rgba(0,0,0,0.1)]">
             <p className="text-[5px] font-medium text-[#535353]/80">에너지 절감률</p>
             <p className="mt-[4px] text-[16px] font-semibold leading-none text-[#176b52]">{Math.round(building.reductionRate * 100)}%</p>
-          </div>
-          <div className="h-[39px] w-[81px] shrink-0 rounded-[10px] bg-white px-[7px] pt-[4px] shadow-[0px_2px_8px_0px_rgba(0,0,0,0.1)]">
-            <p className="text-[5px] font-medium text-[#535353]/80">예상 비용</p>
-            <p className="mt-[4px] text-[14px] font-semibold leading-none text-[#176b52]">{building.costText}</p>
           </div>
         </div>
       </div>

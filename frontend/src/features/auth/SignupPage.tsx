@@ -47,42 +47,71 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
   }
 
   return (
-    <main className="auth-page signup-page">
-      <header className="auth-page__header">
-        <h1>회원가입</h1>
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center bg-white px-6 py-10">
+      <header className="mb-8">
+        <h1 className="text-2xl font-bold text-neutral-900">회원가입</h1>
       </header>
 
-      <form className="auth-form" onSubmit={handleSubmit} noValidate>
-        <label className="form-field">
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
           <span>아이디</span>
-          <input value={loginId} onChange={(event) => setLoginId(event.target.value)} />
+          <input
+            value={loginId}
+            onChange={(event) => setLoginId(event.target.value)}
+            placeholder="아이디를 입력해주세요"
+            className="rounded-xl border border-neutral-200 px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+          />
         </label>
-        <label className="form-field">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
           <span>이름</span>
-          <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          <input
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="이름을 입력해주세요"
+            className="rounded-xl border border-neutral-200 px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+          />
         </label>
-        <label className="form-field">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
           <span>비밀번호</span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="비밀번호를 입력해주세요"
+            className="rounded-xl border border-neutral-200 px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+          />
         </label>
-        <label className="form-field">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
           <span>비밀번호 확인</span>
           <input
             type="password"
             value={passwordConfirm}
             onChange={(event) => setPasswordConfirm(event.target.value)}
+            placeholder="비밀번호를 다시 입력해주세요"
+            className="rounded-xl border border-neutral-200 px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
           />
         </label>
 
-        {error && <p className="form-error" role="alert">{error}</p>}
+        {error && (
+          <p className="text-sm font-medium text-red-500" role="alert">
+            {error}
+          </p>
+        )}
 
-        <button className="primary-button" type="submit" disabled={isSubmitting}>
+        <button
+          className="mt-2 rounded-xl bg-brand-400 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-400/30 disabled:opacity-60"
+          type="submit"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? "가입 중..." : "회원가입"}
         </button>
       </form>
 
-      <p className="auth-page__link">
-        이미 계정이 있으신가요? <Link to="/login">로그인</Link>
+      <p className="mt-6 text-center text-sm text-neutral-500">
+        이미 계정이 있으신가요?{" "}
+        <Link to="/login" className="font-semibold text-brand-600">
+          로그인
+        </Link>
       </p>
     </main>
   );

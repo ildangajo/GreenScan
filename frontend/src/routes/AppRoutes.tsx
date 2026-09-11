@@ -25,7 +25,9 @@ import ResultPage from "../features/calculation-result/ResultPage";
  * /ai-diagnosis: 홈 히어로 배너 "AI 진단 시작하기"의 진입 화면. 사진+주소만
  * 먼저 받고 "분석 시작하기"를 누르면 /start(건물유형 선택)로 이어져 이
  * 4단계 플로우를 그대로 탄다 — features/ai-diagnosis/AiDiagnosisStartPage
- * 파일 상단 주석 참고.
+ * 파일 상단 주석 참고. 여기서 확인한 주소의 region_id를 DiagnosisContext에
+ * 저장해두므로, /start에 region_id 없이 직접 들어오면 BuildingSpaceSelectPage가
+ * 자동으로 /ai-diagnosis로 되돌려보낸다.
  */
 export default function AppRoutes() {
   return (

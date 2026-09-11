@@ -30,7 +30,7 @@ struct HomeView: View {
     @Environment(DiagnosisFlowState.self) private var diagnosisFlow
     @State private var fabOpen = false
     @State private var recentState: RecentBuildingsState = .notLoggedIn
-    @State private var navigateToAiDiagnosis = false
+    @State private var navigateToSurvey = false
     // 진단 플로우(홈→AI진단→건물유형→공간입력)를 안 거치고 라이다 스캔만 바로
     // 테스트하는 버튼(PM 요청, 2026-09-12: "라이다 테스트는 그대로 냅둬줘").
     // 정식 진입점은 SpaceInputView의 "라이다로 측정하기"고, 이 버튼도 같은
@@ -94,7 +94,7 @@ struct HomeView: View {
                         }
 
                         Button {
-                            navigateToAiDiagnosis = true
+                            navigateToSurvey = true
                         } label: {
                             heroBanner(height: heroHeight)
                         }
@@ -127,8 +127,11 @@ struct HomeView: View {
             .fullScreenCover(isPresented: $showLidarTest) {
                 RoomScanView().environment(diagnosisFlow)
             }
-            .navigationDestination(isPresented: $navigateToAiDiagnosis) {
-                AiDiagnosisView()
+            .navigationDestination(isPresented: $navigateToSurvey) {
+                // PM 지시(2026-09-12): AI 분석하기 전에 5단계 사전 설문을 먼저
+                // 거치게 함 — SurveyView가 끝나면(5단계 "AI 분석하기" 버튼)
+                // 그 안에서 AiDiagnosisView로 이어간다.
+                SurveyView()
             }
         }
         .task(id: auth.sessionToken) {

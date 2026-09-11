@@ -35,6 +35,15 @@ final class DiagnosisFlowState {
     var lowE = "unknown"
     var anomalyConfirmed = "none_observed"
 
+    // SurveyView(AI 분석하기 전 5단계 설문, PM 요청 2026-09-12)에서 채움.
+    // 계산 API 계약(CalculateRequest, backend/app/schemas/diagnosis.py)엔
+    // 대응하는 필드가 없다 — 지금은 화면에서만 쓰고 백엔드로 전송하지
+    // 않는다. 수집 목적/저장 엔드포인트가 정해지면 그때 API 연동을 붙인다.
+    var surveyBuildingCategory = "" // "detached" | "multi" | "other"
+    var surveyDiscomforts: Set<String> = []
+    var surveyConditionRatings: [String: Double] = [:] // 0...1, 항목키 -> 값(나쁨0~좋음1)
+    var surveyPreferredRemodels: Set<String> = []
+
     /// 결과 화면에서 "진단 종료"를 누르면 홈으로 돌아가면서 호출한다 —
     /// 다음 진단이 이전 값을 이어받지 않도록 초기 상태로 되돌린다.
     func reset() {
@@ -53,6 +62,10 @@ final class DiagnosisFlowState {
         windowTypeConfirmed = "double"
         lowE = "unknown"
         anomalyConfirmed = "none_observed"
+        surveyBuildingCategory = ""
+        surveyDiscomforts = []
+        surveyConditionRatings = [:]
+        surveyPreferredRemodels = []
     }
 }
 

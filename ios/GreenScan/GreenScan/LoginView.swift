@@ -44,19 +44,28 @@ struct LoginView: View {
                 }
 
                 Button(action: submit) {
-                    Text("로그인")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.brand500)
-                        .clipShape(RoundedRectangle(cornerRadius: 26))
+                    Group {
+                        if auth.isLoggingIn {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("로그인")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(Color.brand500)
+                    .clipShape(RoundedRectangle(cornerRadius: 26))
                 }
+                .disabled(auth.isLoggingIn || loginId.isEmpty || password.isEmpty)
+                .opacity(auth.isLoggingIn || loginId.isEmpty || password.isEmpty ? 0.6 : 1)
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
-                // 데모 힌트 — 실제 서비스에서는 지운다.
+                // 데모 힌트 — 실서버 연동 후에도 남겨둔다: 와이파이가 불안정할 때만
+                // 오프라인 폴백으로 쓰이는 안전장치라, 발표 중 참고용으로 필요하다.
                 .overlay(alignment: .bottom) {
-                    Text("데모 계정: admin1234 / 1234")
+                    Text("실서버 계정 또는 오프라인 데모: admin1234 / 1234")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .offset(y: 20)
@@ -108,7 +117,7 @@ struct LoginView: View {
 
     private func submit() {
         focusedField = nil
-        auth.login(loginId: loginId, password: password)
+        Task { await auth.login(loginId: loginId, password: password) }
     }
 
     private func field(_ placeholder: String, text: Binding<String>, secure: Bool = false) -> some View {
@@ -136,7 +145,7 @@ struct LoginView: View {
     ) -> some View {
         Button {
             // 소셜 로그인은 아직 실제 OAuth 연동 전이라 데모 계정으로 바로 통과시킨다.
-            auth.login(loginId: AuthState.demoLoginId, password: AuthState.demoPassword)
+            Task { await auth.login(loginId: AuthState.demoLoginId, password: AuthState.demoPassword) }
         } label: {
             HStack {
                 icon().frame(width: 20)

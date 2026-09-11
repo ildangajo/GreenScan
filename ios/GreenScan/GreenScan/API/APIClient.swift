@@ -19,15 +19,6 @@ struct ApiError: Error, LocalizedError {
     var errorDescription: String? { message }
 }
 
-private struct ApiErrorBody: Decodable {
-    struct Detail: Decodable {
-        let error_code: String?
-        let message: String?
-    }
-    let detail: Detail?
-    let message: String?
-}
-
 enum APIClient {
     static func request<T: Decodable>(
         path: String,
@@ -68,13 +59,42 @@ enum APIClient {
 
     /// JSON이 아닌 요청(예: PhotosAPI의 multipart 업로드)도 같은 에러 응답
     /// 형식을 공유하므로, 파싱 로직을 여기서 공용으로 노출한다.
+    ///
+    /// JSONSerialization으로 느슨하게 파싱하는 이유: detail의 실제 타입(객체/
+    /// 배열/문자열)이 에러 종류에 따라 달라서, 고정된 Decodable 구조체
+    /// 하나로는 그중 하나라도 어긋나면 통째로 디코딩이 실패해 항상 마지막
+    /// 폴백 메시지("요청을 처리하지 못했습니다")로만 떨어졌다.
     static func makeError(status: Int, data: Data) -> ApiError {
-        let body = try? JSONDecoder().decode(ApiErrorBody.self, from: data)
-        return ApiError(
-            message: body?.detail?.message ?? body?.message ?? "요청을 처리하지 못했습니다.",
-            status: status,
-            code: body?.detail?.error_code
-        )
+        let fallbackMessage = "요청을 처리하지 못했습니다. (HTTP \(status))"
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return ApiError(message: fallbackMessage, status: status, code: nil)
+        }
+
+        // 1) 우리 백엔드가 직접 던진 에러: { detail: { error_code, message } }
+        if let detailDict = json["detail"] as? [String: Any] {
+            let message = detailDict["message"] as? String ?? json["message"] as? String ?? fallbackMessage
+            return ApiError(message: message, status: status, code: detailDict["error_code"] as? String)
+        }
+
+        // 2) FastAPI가 라우트 핸들러 진입 전에 자동으로 거부한 Pydantic 검증
+        //    실패: { detail: [{ loc, msg, type }, ...] }
+        if let detailArray = json["detail"] as? [[String: Any]] {
+            let messages = detailArray.compactMap { item -> String? in
+                guard let msg = item["msg"] as? String else { return nil }
+                let loc = (item["loc"] as? [Any])?.map { "\($0)" }.joined(separator: ".")
+                return (loc?.isEmpty == false) ? "\(loc!): \(msg)" : msg
+            }
+            if !messages.isEmpty {
+                return ApiError(message: messages.joined(separator: "\n"), status: status, code: "VALIDATION_ERROR")
+            }
+        }
+
+        // 3) detail이 단순 문자열인 경우 (FastAPI raise HTTPException(detail="..."))
+        if let detailString = json["detail"] as? String {
+            return ApiError(message: detailString, status: status, code: nil)
+        }
+
+        return ApiError(message: json["message"] as? String ?? fallbackMessage, status: status, code: nil)
     }
 }
 

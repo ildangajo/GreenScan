@@ -5,37 +5,30 @@ import chevronLeftIcon from "./assets/chevron-left.svg";
 import chevronDownIcon from "./assets/chevron-down.svg";
 import { ApiError } from "../../api/http";
 import { geocodeAddress } from "../../api/map";
-import { getReferenceOptions } from "../../api/reference";
-import type { ConstructionYearRangeOption } from "../../api/reference";
+import { getReferenceOptions, type ConstructionYearRangeOption } from "../../api/reference";
+import { useDiagnosis } from "../../state/DiagnosisContext";
 
 /**
  * "AI 분석하기" 시작 화면 — 홈 히어로 배너의 "AI 진단 시작하기"를 누르면 들어오는
- * 새 진입 화면. Figma node 18:141(fileKey FZ0uc815axf5FVAHkuw5Vo)의 정확한
- * 색상/치수/에셋을 그대로 반영했다(#2fcbaa 포인트 컬러, rgba(190,190,190,0.1)
- * 입력창 배경, rgba(47,203,170,0.3) 선택 필 배경 등). 건물 용도에서 "공공"은
- * 요청에 따라 제외했다(Figma엔 있지만 PM 지시로 뺌).
+ * 진입 화면. Figma node 18:141(fileKey FZ0uc815axf5FVAHkuw5Vo)의 색상/치수/
+ * 에셋은 그대로 두되, 필드 구성은 실제 백엔드 계산 계약
+ * (backend/app/schemas/diagnosis.py CalculateRequest, api-spec.md 2.4)에
+ * 맞춰 다시 짰다.
  *
- * 백엔드(2026-09-11 시드 완료) 연동 현황:
- * - 건물 연도: /api/v1/reference/options의 construction_year_ranges를 그대로
- *   쓴다. 지금은 시드가 "2016.07~2023.02"/"2023.02 이후" 두 구간만 있어서
- *   목록이 짧다 — 데이터가 늘면 자동으로 반영된다.
- * - 건물 주소: 입력 후 "확인"을 누르면 /api/v1/map/geocode로 실제 지역을
- *   조회한다. ⚠️ 이 엔드포인트는 로그인이 필요한데(OpenAPI 스키마엔 optional로
- *   보이지만 실제로는 401) 이 브랜치엔 로그인 플로우가 아직 없어서
- *   (feat/fe-auth-login 브랜치 작업 중) 지금은 항상 "로그인이 필요합니다"가
- *   뜬다 — 로그인이 합류하면 바로 동작한다.
- * - 건물 용도(주거/상업업무/기타), 건물 면적(㎡ 구간): reference/options
- *   응답에 대응하는 필드가 아예 없다. 로컬 state로만 유지 — PM/백엔드와
- *   이 두 항목을 뭘로 저장할지 먼저 정해야 한다.
- * - "분석 시작하기": 계산 엔진(POST /api/v1/diagnoses가 요구하는
- *   calculation_result)이 아직 없어서 실제 제출은 TODO로 남겨둔다.
+ * 이전 버전과 달라진 점 (2026-09-11, 백엔드 구조에 맞춤):
+ * - "건물 용도"(주거/상업업무/기타)와 "건물 면적"(㎡ 구간) 필드를 없앴다.
+ *   계산 API 어디에도 대응하는 항목이 없어서 그동안 저장할 곳 없는 값이었다
+ *   — 대신 실제로 계산에 쓰이는 건물유형/대표공간/공간치수/창호/벽체 입력은
+ *   기존 5단계 플로우(BuildingSpaceSelectPage → SpaceInputPage →
+ *   PhotoUploadPage → AiConfirmPage)가 이미 정확한 스키마로 갖고 있어서,
+ *   이 화면은 "사진 + 주소"만 먼저 받고 나머지는 그 플로우로 넘긴다.
+ * - 주소를 "확인"하면 얻는 region_id, 선택한 건물 연도(construction_year_range)를
+ *   DiagnosisContext에 저장해서 이후 단계(ResultPage의 계산 요청 조립)에서
+ *   그대로 쓴다.
+ * - 사진은 아직 카테고리별(창호/벽체) 업로드 UI가 없어서 로컬에만 들고
+ *   있고 /api/v1/photos/analyze 호출은 PhotoUploadPage 쪽에서 붙일 몫으로
+ *   남겨둔다(그 화면은 이미 창호/벽체 슬롯을 구분해서 갖고 있다).
  */
-
-const BUILDING_PURPOSES = ["주거", "상업/업무", "기타"] as const;
-const BUILDING_AREAS = ["1,000~2,000㎡", "2,000~4,000㎡", "4,000㎡ 이상"] as const;
-
-type BuildingPurpose = (typeof BUILDING_PURPOSES)[number];
-type BuildingArea = (typeof BUILDING_AREAS)[number];
 
 type AddressCheck =
   | { status: "idle" }
@@ -43,39 +36,17 @@ type AddressCheck =
   | { status: "ok"; regionId: string }
   | { status: "error"; message: string };
 
-/** 선택형 필(pill) 버튼 — 선택 시 배경만 teal 톤으로 바뀌고 글자색은 그대로(#535353) 유지된다 */
-function PillOption({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`shrink-0 rounded-[30px] px-[10px] py-[10px] text-[12px] font-semibold text-[#535353] shadow-[0px_2px_8px_0px_rgba(0,0,0,0.2)] ${
-        selected ? "bg-[rgba(47,203,170,0.3)]" : "bg-white"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
 export default function AiDiagnosisStartPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { state, update } = useDiagnosis();
 
   const [photos, setPhotos] = useState<File[]>([]);
-  const [address, setAddress] = useState("");
-  const [addressCheck, setAddressCheck] = useState<AddressCheck>({ status: "idle" });
-  const [purpose, setPurpose] = useState<BuildingPurpose>("상업/업무");
-  const [area, setArea] = useState<BuildingArea>("1,000~2,000㎡");
-  const [year, setYear] = useState("");
+  const [address, setAddress] = useState(state.address);
+  const [addressCheck, setAddressCheck] = useState<AddressCheck>(
+    state.regionId ? { status: "ok", regionId: state.regionId } : { status: "idle" },
+  );
+  const [year, setYear] = useState(state.constructionYearRange);
   const [yearOptions, setYearOptions] = useState<ConstructionYearRangeOption[]>([]);
 
   useEffect(() => {
@@ -95,10 +66,19 @@ export default function AiDiagnosisStartPage() {
     try {
       const res = await geocodeAddress(address.trim());
       setAddressCheck({ status: "ok", regionId: res.region_id });
+      update({ address: address.trim(), regionId: res.region_id });
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "주소 확인에 실패했습니다.";
       setAddressCheck({ status: "error", message });
     }
+  };
+
+  const canProceed = addressCheck.status === "ok" && year !== "";
+
+  const handleStart = () => {
+    update({ constructionYearRange: year });
+    // 나머지(건물유형/대표공간/공간치수/창호/벽체)는 기존 5단계 플로우에서 이어받는다.
+    navigate("/start");
   };
 
   return (
@@ -112,7 +92,7 @@ export default function AiDiagnosisStartPage() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto px-[21px] pb-28">
-        {/* 사진 업로드 카드 */}
+        {/* 사진 업로드 카드 — 실제 분석 호출은 다음 단계(사진 업로드 화면)에서 창호/벽체로 나눠서 한다 */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -148,7 +128,7 @@ export default function AiDiagnosisStartPage() {
           </div>
         </div>
 
-        {/* 건물 주소 — "확인" 누르면 실제 지역 조회(/api/v1/map/geocode) */}
+        {/* 건물 주소 — "확인" 누르면 실제 지역 조회(/api/v1/map/geocode), 성공 시 region_id를 DiagnosisContext에 저장 */}
         <div className="mt-8 flex flex-col gap-3">
           <label htmlFor="address" className="text-[15px] font-semibold text-[#535353]">
             건물 주소 입력
@@ -183,27 +163,7 @@ export default function AiDiagnosisStartPage() {
           )}
         </div>
 
-        {/* 건물 용도 */}
-        <div className="mt-6 flex flex-col gap-3">
-          <span className="text-[15px] font-semibold text-[#535353]">건물 용도</span>
-          <div className="flex flex-wrap gap-[14px]">
-            {BUILDING_PURPOSES.map((option) => (
-              <PillOption key={option} label={option} selected={purpose === option} onClick={() => setPurpose(option)} />
-            ))}
-          </div>
-        </div>
-
-        {/* 건물 면적 */}
-        <div className="mt-6 flex flex-col gap-3">
-          <span className="text-[15px] font-semibold text-[#535353]">건물 면적</span>
-          <div className="flex flex-wrap gap-[14px]">
-            {BUILDING_AREAS.map((option) => (
-              <PillOption key={option} label={option} selected={area === option} onClick={() => setArea(option)} />
-            ))}
-          </div>
-        </div>
-
-        {/* 건물 연도 */}
+        {/* 건물 연도 — construction_year_range로 그대로 계산 요청에 쓰인다 */}
         <div className="mt-6 flex flex-col gap-3">
           <label htmlFor="year" className="text-[15px] font-semibold text-[#535353]">
             건물 연도
@@ -227,15 +187,19 @@ export default function AiDiagnosisStartPage() {
             <img src={chevronDownIcon} alt="" className="pointer-events-none absolute right-[16px] top-1/2 h-2 w-3.5 -translate-y-1/2" />
           </div>
         </div>
+
+        <p className="mt-6 rounded-[16px] border border-dashed border-[rgba(83,83,83,0.3)] px-4 py-3 text-[12px] leading-relaxed text-[#535353]/70">
+          건물유형·대표공간·공간 치수·창호·벽체 정보는 다음 화면들에서 이어서 입력합니다.
+        </p>
       </main>
 
-      {/* 분석 시작하기 — 실제 제출/다음 화면 연결은 TODO */}
+      {/* 분석 시작하기 — 기존 5단계 플로우(건물유형 선택)로 이어간다. 계산 자체는 그 플로우 끝(ResultPage)에서 실행된다 */}
       <div className="flex shrink-0 justify-center px-[21px] py-4">
         <button
           type="button"
-          // TODO: 기존 5단계 플로우와의 연결 방식이 정해지면 여기서 다음 화면으로 이동
-          onClick={() => navigate("/space-input")}
-          className="rounded-[50px] bg-[#2fcbaa] px-[62px] py-[13px] text-[15px] font-semibold text-white"
+          onClick={handleStart}
+          disabled={!canProceed}
+          className="rounded-[50px] bg-[#2fcbaa] px-[62px] py-[13px] text-[15px] font-semibold text-white disabled:opacity-40"
         >
           분석 시작하기
         </button>

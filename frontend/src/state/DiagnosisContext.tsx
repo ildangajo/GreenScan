@@ -1,21 +1,31 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 /**
- * 목업 단계의 화면 간 공유 상태.
+ * 5단계 화면이 공유하는 진단 입력 상태.
  *
- * 실제 확정 입력 스키마와 계산 API 계약은 docs/api-design.md 2.4절을 따른다.
- * 여기서는 화면 흐름(1~5단계)이 이어진다는 것을 보여주기 위한 최소 상태만 다룬다 —
- * 서버 저장, 유효성 검증, react-hook-form/zod 연동은 실제 API 연동 단계에서 붙인다.
+ * 값들은 실제 계산 API 계약(backend/app/schemas/diagnosis.py CalculateRequest,
+ * api-spec.md 2.4)의 enum 문자열과 정확히 같은 값을 쓴다 — 이 상태를 그대로
+ * ResultPage에서 CalculateRequest로 조립해 POST /diagnoses/calculate를 부른다
+ * (features/calculation-result/ResultPage.tsx 참고). 필드명이 백엔드와 달라도
+ * (예: windowTypeConfirmed → window_type) *값*만 정확히 일치하면 되고, 조립
+ * 단계에서 필드명을 매핑한다.
  */
 export type BuildingType = "detached_multi_household" | "apartment";
 export type SpaceType = "living_room" | "main_bedroom" | "other";
 export type WindowType = "single" | "double" | "triple";
 export type LowE = "yes" | "no" | "unknown";
+export type InsulationStatus = "none" | "partial" | "good";
 export type AnomalyConfirm = "suspected" | "none_observed";
 
 export interface DiagnosisState {
   buildingType: BuildingType;
   spaceType: SpaceType;
+  /** 홈 히어로 배너 "AI 진단 시작하기" → AiDiagnosisStartPage에서 입력한 주소 원문(표시용) */
+  address: string;
+  /** 위 주소를 /api/v1/map/geocode로 확인해서 얻은 region_id. 비어있으면 아직 확인 전(또는 실패) */
+  regionId: string;
+  /** reference/options의 construction_year_ranges 중 하나의 value */
+  constructionYearRange: string;
   width: string;
   depth: string;
   height: string;
@@ -24,12 +34,16 @@ export interface DiagnosisState {
   wallArea: string;
   windowTypeConfirmed: WindowType;
   lowE: LowE;
+  insulationStatus: InsulationStatus;
   anomalyConfirmed: AnomalyConfirm;
 }
 
 const defaultState: DiagnosisState = {
   buildingType: "apartment",
   spaceType: "living_room",
+  address: "",
+  regionId: "",
+  constructionYearRange: "",
   width: "",
   depth: "",
   height: "",
@@ -38,6 +52,7 @@ const defaultState: DiagnosisState = {
   wallArea: "",
   windowTypeConfirmed: "double",
   lowE: "unknown",
+  insulationStatus: "partial",
   anomalyConfirmed: "none_observed",
 };
 

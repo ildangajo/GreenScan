@@ -90,10 +90,10 @@ export default function ResultPage() {
 
   return (
     <StepLayout
-      step={5}
+      step={4}
       title="GreenScan 추정 연간 열손실 분석"
       subtitle={`${state.buildingType === "apartment" ? "아파트" : "단독·다가구주택"} · 이 방 기준 · 비공식 추정치`}
-      onBack={() => navigate("/ai-confirm")}
+      onBack={() => navigate("/photo-upload")}
       onNext={() => navigate("/")}
       nextLabel="진단 종료"
     >

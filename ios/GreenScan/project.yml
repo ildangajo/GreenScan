@@ -1,0 +1,47 @@
+name: GreenScan
+options:
+  bundleIdPrefix: com.greenscan
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  GreenScan:
+    type: application
+    platform: iOS
+    sources: [GreenScan]
+    info:
+      path: GreenScan/Info.plist
+      properties:
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: launch-logo
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greenscan.app
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+  GreenScanUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [GreenScanUITests]
+    dependencies:
+      - target: GreenScan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greenscan.uitests
+        SWIFT_VERSION: "5.0"
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        TEST_TARGET_NAME: GreenScan
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  GreenScan:
+    build:
+      targets:
+        GreenScan: all
+        GreenScanUITests: [test]
+    test:
+      targets: [GreenScanUITests]

@@ -26,11 +26,12 @@ private enum RecentBuildingsState {
 ///    색으로 순차 등장하는 스피드다이얼 메뉴.
 struct HomeView: View {
     @Environment(AuthState.self) private var auth
+    @Environment(DiagnosisNavigationPath.self) private var diagnosisNavigationPath
     @State private var fabOpen = false
     @State private var recentState: RecentBuildingsState = .notLoggedIn
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: Bindable(diagnosisNavigationPath).path) {
             VStack(spacing: 0) {
                 searchBar
 
@@ -407,5 +408,5 @@ private struct RecentBuildingCard: View {
 }
 
 #Preview {
-    HomeView().environment(AuthState())
+    HomeView().environment(AuthState()).environment(DiagnosisNavigationPath())
 }

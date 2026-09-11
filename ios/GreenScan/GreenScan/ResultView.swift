@@ -384,7 +384,13 @@ struct ResultView: View {
                 visible_anomaly_confirmed: flow.anomalyConfirmed,
                 input_source: "user_corrected"
             ),
-            location: .init(region_id: flow.regionId)
+            location: .init(region_id: flow.regionId),
+            survey: .init(
+                building_category: flow.surveyBuildingCategory,
+                discomforts: Array(flow.surveyDiscomforts),
+                condition_ratings: flow.surveyConditionRatings,
+                preferred_remodels: Array(flow.surveyPreferredRemodels)
+            )
         )
     }
 

@@ -32,12 +32,25 @@ enum CalculateAPI {
         struct Location: Encodable {
             let region_id: String
         }
+        /// 계산 계약엔 없는 필드 — /calculate 쪽 백엔드 Pydantic 모델이 알 수
+        /// 없는 필드는 조용히 무시한다는 걸 실서버로 직접 확인했다(2026-09-12,
+        /// extra 필드를 넣고 200 응답 받음). DiagnosesAPI.create()가 이
+        /// CalculateRequest를 그대로 confirmed_input(JSONB, 자유 형식)에 담아
+        /// POST /diagnoses로 저장하므로, 여기 끼워두면 계산 자체엔 영향 없이
+        /// 설문 응답이 진단 이력에 같이 저장된다 — PM 지시(2026-09-12).
+        struct Survey: Encodable {
+            let building_category: String
+            let discomforts: [String]
+            let condition_ratings: [String: Double]
+            let preferred_remodels: [String]
+        }
 
         let building: Building
         let space: Space
         let window: Window
         let wall: Wall
         let location: Location
+        let survey: Survey
     }
 
     /// Codable(Decodable만이 아니라 Encodable도)인 이유: DiagnosesAPI.create()가

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import StepLayout from "../../components/ui/StepLayout";
 import { useDiagnosis, type BuildingType, type SpaceType } from "../../state/DiagnosisContext";
@@ -17,6 +18,19 @@ const SPACE_TYPES: { value: SpaceType; label: string }[] = [
 export default function BuildingSpaceSelectPage() {
   const navigate = useNavigate();
   const { state, update } = useDiagnosis();
+
+  // 이 플로우는 결과 계산에 region_id가 반드시 필요한데, 이 화면 자체에는 주소
+  // 입력이 없다 — /ai-diagnosis(주소 확인 화면)를 거치지 않고 바로 들어온
+  // 경우 결과 화면까지 가서야 막히므로, 여기서 먼저 그쪽으로 보낸다.
+  useEffect(() => {
+    if (!state.regionId) {
+      navigate("/ai-diagnosis", { replace: true });
+    }
+  }, [state.regionId, navigate]);
+
+  if (!state.regionId) {
+    return null;
+  }
 
   return (
     <StepLayout

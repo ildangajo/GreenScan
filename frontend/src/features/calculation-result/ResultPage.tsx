@@ -22,10 +22,26 @@ import { ApiError } from "../../api/http";
  */
 
 const URGENCY_STYLE = ["bg-red-50 text-red-600", "bg-amber-50 text-amber-600", "bg-neutral-100 text-neutral-600"];
+const URGENCY_BADGE_STYLE = ["bg-red-500", "bg-amber-500", "bg-neutral-400"];
 const URGENCY_LABEL = ["긴급", "주의", "권장"];
 
 function urgencyIndex(priority: number) {
   return Math.min(priority - 1, URGENCY_LABEL.length - 1);
+}
+
+/**
+ * PRD v8.2 9.1: "총량 수준" 등급은 서버가 내려주는 별도 필드가 아니라
+ * (산정 임계값 정책 미확정, docs/db-spec.md 8장), 프론트가 기존 scenarios의
+ * 우선순위(감소량 큰 순으로 이미 정렬됨)만 보고 판단한다 — 가장 시급한
+ * 개선 시나리오의 등급을 총량 수준 등급으로 그대로 쓴다. 임의의 %
+ * 임계값을 새로 만들지 않는다.
+ */
+function overallUrgencyIndex(scenarios: CalculateResponse["scenarios"]): number {
+  const topPriority = scenarios.reduce(
+    (min, s) => Math.min(min, s.priority),
+    scenarios[0]?.priority ?? URGENCY_LABEL.length,
+  );
+  return urgencyIndex(topPriority);
 }
 
 type LoadState =
@@ -120,6 +136,21 @@ export default function ResultPage() {
 
       {result.status === "ok" && (
         <div className="flex flex-col gap-5">
+          {(() => {
+            const uIdx = overallUrgencyIndex(result.data.scenarios);
+            return (
+              <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-4 text-center">
+                <p className="text-xs text-neutral-500">이 집의 열손실 총량 수준</p>
+                <span
+                  className={`self-center rounded-full px-4 py-1.5 text-lg font-bold text-white ${URGENCY_BADGE_STYLE[uIdx]}`}
+                >
+                  {URGENCY_LABEL[uIdx]}
+                </span>
+                <p className="text-[11px] text-neutral-400">참고용 추정치이며 실제와 다를 수 있습니다.</p>
+              </div>
+            );
+          })()}
+
           <div className="rounded-lg border border-neutral-200 p-4">
             <p className="text-xs text-neutral-500">예상 연간 에너지 사용량 (대표 공간 기준 추정)</p>
             <p className="text-2xl font-bold text-neutral-900">

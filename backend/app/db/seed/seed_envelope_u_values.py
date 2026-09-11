@@ -16,8 +16,6 @@ construction_year_ranges를 그대로 재사용한다(그 시드가 먼저 실�
 실행: python -m app.db.seed.seed_envelope_u_values (재실행해도 안전)
 """
 
-from datetime import date
-
 from sqlalchemy import select
 
 from app.db.session import SessionLocal

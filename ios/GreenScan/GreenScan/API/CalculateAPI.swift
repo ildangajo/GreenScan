@@ -40,19 +40,22 @@ enum CalculateAPI {
         let location: Location
     }
 
-    struct CalculateResponse: Decodable {
-        struct ReferenceDataVersion: Decodable {
+    /// Codable(Decodable만이 아니라 Encodable도)인 이유: DiagnosesAPI.create()가
+    /// 계산 응답을 그대로 confirmed_input/calculation_result로 재직렬화해서
+    /// POST /diagnoses에 담아 보낸다(test_integration_flow.py의 저장 방식과 동일).
+    struct CalculateResponse: Codable {
+        struct ReferenceDataVersion: Codable {
             let current_u_value_window: String
             let current_u_value_wall: String
             let target_u_value: String
             let hdd: String
         }
-        struct Baseline: Decodable {
+        struct Baseline: Codable {
             let window_heat_loss_kwh: Double
             let wall_heat_loss_kwh: Double
             let total_heat_loss_kwh: Double
         }
-        struct Scenario: Decodable, Identifiable {
+        struct Scenario: Codable, Identifiable {
             let scenario_id: String
             let name: String
             let changed_components: [String]
@@ -62,7 +65,7 @@ enum CalculateAPI {
 
             var id: String { scenario_id }
         }
-        struct WallAnomalyNotice: Decodable {
+        struct WallAnomalyNotice: Codable {
             let status: String
             let message: String
         }

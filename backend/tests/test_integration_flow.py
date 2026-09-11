@@ -76,7 +76,7 @@ def _base_calculate_payload(**overrides):
         "building": {
             "building_type": "apartment",
             "representative_space_type": "living_room",
-            "construction_year_range": "2016_2023",
+            "construction_year_range": "2016_2018",
         },
         "space": {
             "width_m": 4.2,
@@ -179,7 +179,7 @@ def test_apartment_vs_detached_use_different_target_group(client):
             building={
                 "building_type": "apartment",
                 "representative_space_type": "living_room",
-                "construction_year_range": "2016_2023",
+                "construction_year_range": "2016_2018",
             }
         ),
     )
@@ -189,7 +189,7 @@ def test_apartment_vs_detached_use_different_target_group(client):
             building={
                 "building_type": "detached_multi_household",
                 "representative_space_type": "living_room",
-                "construction_year_range": "2016_2023",
+                "construction_year_range": "2016_2018",
             }
         ),
     )

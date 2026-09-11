@@ -2,7 +2,8 @@ name: Backend CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - "**"
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
@@ -16,22 +17,44 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    name: Test backend
+  backend-tests:
+    name: Backend tests
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: sqlite://
     defaults:
       run:
         working-directory: backend
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: greenscan
+          POSTGRES_PASSWORD: greenscan
+          POSTGRES_DB: greenscan_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U greenscan -d greenscan_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://greenscan:greenscan@localhost:5432/greenscan_test
+      RUN_DB_CONNECTION_TEST: "true"
+
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -44,6 +67,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
+      - name: Check code
+        run: python -m ruff check app tests --ignore B008,I001,PYI034,RUF022
+
       - name: Check application imports
         run: |
           python - <<'PY'
@@ -53,13 +79,102 @@ jobs:
           assert {"/health", "/health/ready"}.issubset(paths)
           PY
 
-      - name: Run tests when present
-        run: |
-          if find tests -type f -name 'test_*.py' -print -quit | grep -q .; then
-            python -m pytest -q
-          else
-            echo "No test files found; skipping pytest."
-          fi
+      - name: Run tests
+        run: python -m pytest -q
 
-      - name: Build backend image
-        run: docker build --tag greenscan-backend:ci .
+  build-and-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: backend-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -f backend/Dockerfile \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+            backend
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+  deploy-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy through SSM
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          DEPLOY_SCRIPT_PATH: ${{ vars.DEPLOY_SCRIPT_PATH }}
+        run: |
+          test -n "$DEPLOY_SCRIPT_PATH"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[\"sudo $DEPLOY_SCRIPT_PATH\"]" \
+            --query "Command.CommandId" \
+            --output text)
+
+          for attempt in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query "Status" \
+              --output text 2>/dev/null || true)
+
+            case "$STATUS" in
+              Success)
+                aws ssm get-command-invocation \
+                  --region "$AWS_REGION" \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$EC2_INSTANCE_ID"
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --region "$AWS_REGION" \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$EC2_INSTANCE_ID"
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+
+          echo "SSM deployment timed out."
+          exit 1

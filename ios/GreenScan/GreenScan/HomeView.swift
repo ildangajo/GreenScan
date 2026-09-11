@@ -1,28 +1,151 @@
 import SwiftUI
 
-/// 웹 버전 frontend/src/features/home/HomePage.tsx의 "찍먹" 포팅.
-/// 히어로가 주소 위를 덮는 스크롤 인터랙션 같은 커스텀 애니메이션은 스켈레톤
-/// 단계라 아직 없고, 구조(검색바 고정 + 히어로 + 최근 분석한 건물 리스트 +
-/// 하단 탭)만 옮겼다.
+private let fabMenuItems: [(key: String, label: String)] = [
+    ("terms", "이용약관"),
+    ("support", "고객센터"),
+]
+
+/// 웹 버전 frontend/src/features/home/HomePage.tsx의 포팅.
+/// 웹의 핵심 인터랙션 두 가지를 SwiftUI 방식으로 그대로 옮겼다:
+/// 1) 히어로 배너는 고정 배경으로 깔려 있고, "최근 분석한 건물" 시트가 그
+///    위를 스크롤로 덮으며 올라와 검색바 바로 아래(pinned section header)에서
+///    멈춘 뒤로는 카드 리스트만 평범히 스크롤된다 (웹의 absolute 스페이서 +
+///    position:sticky 트릭 → GeometryReader 높이 계산 + LazyVStack
+///    pinnedViews 로 대응).
+/// 2) 우하단 + 버튼을 누르면 이용약관/고객센터 원이 위로 갈수록 옅어지는
+///    색으로 순차 등장하는 스피드다이얼 메뉴.
 struct HomeView: View {
+    @State private var fabOpen = false
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchBar
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                GeometryReader { geo in
+                    // 웹의 aspectRatio: "359 / 190" — 좌우 16pt 패딩을 뺀 너비 기준으로
+                    // 같은 비율의 높이를 계산해 히어로와 스페이서에 동일하게 쓴다.
+                    let heroHeight = (geo.size.width - 32) * 190 / 359
+
+                    ZStack(alignment: .top) {
                         NavigationLink(destination: AiDiagnosisView()) {
                             heroBanner
                         }
                         .buttonStyle(.plain)
-                        recentSection
+                        .padding(.horizontal, 16)
+                        .frame(height: heroHeight)
+
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                // 히어로와 같은 높이의 투명 스페이서. allowsHitTesting(false)로
+                                // 이 구간의 탭은 아래 히어로(NavigationLink)로 그대로 전달된다.
+                                Color.clear
+                                    .frame(height: heroHeight)
+                                    .allowsHitTesting(false)
+
+                                // 헤더는 pinnedViews로 검색바 바로 아래에 고정되고, 카드는 그
+                                // 밑에서 평범하게 스크롤된다(웹의 position:sticky와 동일한
+                                // 효과). 알려진 제약: 헤더가 고정되는 첫 순간 히어로가 한 프레임
+                                // 살짝 비치는 시각적 버그가 남아있다 — 스크롤 자체와 카드 목록
+                                // 동작에는 영향 없음.
+                                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                                    Section {
+                                        VStack(spacing: 16) {
+                                            ForEach(RecentBuilding.samples) { building in
+                                                RecentBuildingCard(building: building)
+                                            }
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, 16)
+                                        .padding(.bottom, 112)
+                                        .background(Color(.systemBackground))
+                                    } header: {
+                                        recentHeader
+                                    }
+                                }
+                            }
+                        }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
                 }
             }
             .background(Color(.systemBackground))
+            .toolbar(.hidden, for: .navigationBar)
+            .overlay(alignment: .bottomTrailing) {
+                fab
+            }
+        }
+    }
+
+    // 헤더는 sticky(pinned)로 뜨는 순간 리스트 흐름에서 분리되므로, 둥근 위쪽
+    // 모서리 + 흰 배경 + 그림자는 부모가 아니라 헤더 자신에게 줘야 한다
+    // (안 그러면 고정된 뒤에 모서리가 사라짐 — 웹에서도 같은 이유로 헤더에 직접 줬다).
+    private var recentHeader: some View {
+        HStack {
+            Text("최근 분석한 건물").font(.system(size: 14, weight: .medium)).foregroundStyle(Color(hex: "535353"))
+            Spacer()
+            HStack(spacing: 2) {
+                Text("전체보기")
+                Image(systemName: "arrow.right")
+            }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(Color(hex: "176b52"))
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+        .background(
+            UnevenRoundedRectangle(topLeadingRadius: 24, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 24)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.1), radius: 8, y: -2)
+        )
+    }
+
+    /// + 버튼 — 누르면 서브메뉴 원이 위로 부드럽게 떠오르고, FAB에서 멀어질수록
+    /// (위로 갈수록) 색이 옅어진다 (Figma node 28:755).
+    private var fab: some View {
+        VStack(alignment: .trailing, spacing: 12) {
+            ForEach(Array(fabMenuItems.enumerated()), id: \.element.key) { index, item in
+                let distanceFromFab = fabMenuItems.count - 1 - index
+                Button {
+                    withAnimation(.easeOut(duration: 0.25)) { fabOpen = false }
+                } label: {
+                    Text(item.label)
+                        .font(.system(size: 11, weight: .semibold))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .background(Circle().fill(Color(hex: "2fcbaa").opacity(0.8)))
+                        .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+                }
+                .opacity(fabOpen ? 1 : 0)
+                .scaleEffect(fabOpen ? 1 : 0.75)
+                .offset(y: fabOpen ? 0 : 16)
+                .allowsHitTesting(fabOpen)
+                .animation(.easeOut(duration: 0.3).delay(fabOpen ? Double(distanceFromFab) * 0.06 : 0), value: fabOpen)
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) { fabOpen.toggle() }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Color.brand400))
+                    .shadow(color: Color.brand400.opacity(0.3), radius: 8, y: 2)
+                    .rotationEffect(.degrees(fabOpen ? 45 : 0))
+            }
+        }
+        .padding(.trailing, 20)
+        .padding(.bottom, 96)
+        // 메뉴 열렸을 때 바깥(화면 전체)을 탭하면 닫힌다.
+        .background(alignment: .topLeading) {
+            if fabOpen {
+                Color.black.opacity(0.001)
+                    .frame(width: 2000, height: 2000)
+                    .offset(x: -1900, y: -1900)
+                    .onTapGesture { withAnimation { fabOpen = false } }
+            }
         }
     }
 
@@ -83,27 +206,7 @@ struct HomeView: View {
             }
             .padding(16)
         }
-        .frame(height: 190)
         .clipShape(RoundedRectangle(cornerRadius: 20))
-    }
-
-    private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("최근 분석한 건물").font(.system(size: 14, weight: .medium))
-                Spacer()
-                HStack(spacing: 2) {
-                    Text("전체보기")
-                    Image(systemName: "arrow.right")
-                }
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color(hex: "176b52"))
-            }
-
-            ForEach(RecentBuilding.samples) { building in
-                RecentBuildingCard(building: building)
-            }
-        }
     }
 }
 

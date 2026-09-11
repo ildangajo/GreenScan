@@ -110,7 +110,9 @@ jobs:
       - name: Build and push image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          # The EC2 deployment script pulls greenscan-backend:staging.
+          # Keep this source-of-truth aligned with that image reference.
+          ECR_REPOSITORY: greenscan-backend
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \

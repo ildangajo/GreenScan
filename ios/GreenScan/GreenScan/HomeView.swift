@@ -273,31 +273,38 @@ struct HomeView: View {
         .padding(.bottom, 12)
     }
 
+    // 예전엔 VStack + Spacer로 배지를 위에, 타이틀을 아래에 밀어붙이는 방식이었는데,
+    // heroHeight가 화면 폭에 따라 달라지다 보니 타이틀 2줄이 히어로 바닥 여백
+    // 없이 바로 잘리는 기기가 있었다(PM 리포트, 2026-09-12: "최근 분석한 건물"
+    // 섹션을 침범할 정도로 잘림). 웹 원본(HomePage.tsx)도 애초에 Spacer가 아니라
+    // 절대좌표(top-[13px]/bottom-[38px])로 고정해뒀던 거라, 그 방식 그대로
+    // overlay(alignment:)로 옮겨서 바닥 여백을 항상 38pt로 보장한다.
     private var heroBanner: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack {
             Image("home-hero-house")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .opacity(0.8)
             LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .bottom, endPoint: .top)
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 4) {
-                    Text("AI 진단 시작하기").font(.system(size: 12, weight: .semibold))
-                    Image(systemName: "arrow.right").font(.system(size: 10, weight: .bold))
-                }
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Color(.systemBackground))
-                .foregroundStyle(.primary)
-                .clipShape(Capsule())
-
-                Spacer()
-
-                Text("이런 리모델링\n가능하다고?")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+        }
+        .overlay(alignment: .topLeading) {
+            HStack(spacing: 4) {
+                Text("AI 진단 시작하기").font(.system(size: 12, weight: .semibold))
+                Image(systemName: "arrow.right").font(.system(size: 10, weight: .bold))
             }
-            .padding(16)
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(Color(.systemBackground))
+            .foregroundStyle(.primary)
+            .clipShape(Capsule())
+            .padding(.leading, 10)
+            .padding(.top, 13)
+        }
+        .overlay(alignment: .bottomLeading) {
+            Text("이런 리모델링\n가능하다고?")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.leading, 13)
+                .padding(.bottom, 38)
         }
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
@@ -319,8 +326,9 @@ private struct RecentBuildingCard: View {
 
     var body: some View {
         HStack(spacing: 13) {
+            // PM 요청(2026-09-12)으로 썸네일 확대: 101x85 -> 118x100.
             LinearGradient(colors: [Color(hex: "e4efe9"), Color(hex: "7fae93")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .frame(width: 101, height: 85)
+                .frame(width: 118, height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 
             VStack(alignment: .leading, spacing: 4) {
@@ -352,7 +360,7 @@ private struct RecentBuildingCard: View {
             Spacer(minLength: 0)
         }
         .padding(.leading, 6).padding(.trailing, 16).padding(.vertical, 8)
-        .frame(height: 114)
+        .frame(height: 128)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.1), radius: 8, y: 2)

@@ -23,6 +23,7 @@ const NAV_ROUTES: Partial<Record<NavKey, string>> = {
   home: "/",
   saved: "/saved",
   news: "/news",
+  mypage: "/mypage",
 };
 
 export default function BottomNav({ active }: { active: NavKey }) {

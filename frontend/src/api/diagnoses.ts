@@ -34,7 +34,7 @@ function authHeader(): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
 
-/** 마이페이지 진단 이력이 쓰는 이름. 홈 "최근 분석한 건물"도 결국 같은 데이터라 listDiagnoses()로 재사용한다. */
+/** 마이페이지(MyPage) 진단 이력이 쓰는 이름. 홈 "최근 분석한 건물"도 결국 같은 데이터라 listDiagnoses()로 재사용한다. */
 export function getMyDiagnoses(): Promise<DiagnosisListResponse> {
   return apiRequest<DiagnosisListResponse>("/api/v1/diagnoses", { headers: authHeader() });
 }

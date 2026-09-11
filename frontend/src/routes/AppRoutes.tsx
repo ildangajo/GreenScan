@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import HomePage from "../features/home/HomePage";
 import LoginPage from "../features/auth/LoginPage";
 import SignupPage from "../features/auth/SignupPage";
+import MyPage from "../features/mypage/MyPage";
 import AiDiagnosisStartPage from "../features/ai-diagnosis/AiDiagnosisStartPage";
 import RecommendationPage from "../features/recommendation/RecommendationPage";
 import SavedPage from "../features/saved/SavedPage";
@@ -34,6 +35,7 @@ export default function AppRoutes() {
       <Route path="/ai-diagnosis" element={<AiDiagnosisStartPage />} />
       <Route path="/news" element={<RecommendationPage />} />
       <Route path="/saved" element={<SavedPage />} />
+      <Route path="/mypage" element={<MyPage />} />
       <Route path="/start" element={<BuildingSpaceSelectPage />} />
       <Route path="/space-input" element={<SpaceInputPage />} />
       <Route path="/photo-upload" element={<PhotoUploadPage />} />

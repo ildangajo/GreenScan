@@ -176,7 +176,10 @@ struct AiDiagnosisView: View {
     }
 
     private var headline: some View {
-        HStack(alignment: .top, spacing: 16) {
+        // 팀원 리포트(2026-09-12, Figma 시안 대조): 점 두 개가 텍스트 블록의
+        // 세로 중앙이 아니라 위쪽에 붙어 있었다 — HStack 정렬을 .top에서
+        // .center로 바꾸고, 위치를 맞추려고 넣었던 상단 여백 보정을 없앴다.
+        HStack(alignment: .center, spacing: 16) {
             (
                 Text("건물 정보를 입력하면").fontWeight(.heavy)
                 + Text("\nAI 맞춤 서비스가 시작됩니다.")
@@ -188,7 +191,6 @@ struct AiDiagnosisView: View {
                 Circle().fill(Color(hex: "176b52").opacity(0.5)).frame(width: 10, height: 10)
                 Circle().fill(Color(hex: "176b52").opacity(0.8)).frame(width: 10, height: 10)
             }
-            .padding(.top, 8)
         }
         .padding(.top, 32)
     }

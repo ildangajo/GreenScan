@@ -11,7 +11,8 @@ from app.services.vision_service import analyze_photo
 router = APIRouter(prefix="/photos", tags=["photos"])
 
 _ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
-_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 정책 확정 필요 (api-spec.md 2.3) — 제안값
+# api-spec.md 2.3 정책 확정: 사진 1장 최대 10MB.
+_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 
 @router.post(
@@ -42,7 +43,11 @@ async def analyze_photo_endpoint(
     if len(image_bytes) > _MAX_FILE_SIZE_BYTES:
         raise HTTPException(
             status_code=400,
-            detail={"error_code": "PHOTO_TOO_LARGE", "message": "파일 용량이 너무 큽니다."},
+            detail={
+                "error_code": "PHOTO_TOO_LARGE",
+                "message": "파일 용량은 10MB를 초과할 수 없습니다.",
+                "detail": {"max_size_bytes": _MAX_FILE_SIZE_BYTES},
+            },
         )
 
     try:

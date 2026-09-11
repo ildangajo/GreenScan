@@ -1,3 +1,4 @@
+from app.models.account import Diagnosis, Favorite, Session, User
 from app.models.building import (
     BuildingComponent,
     BuildingTypeTargetGroupMapping,
@@ -36,4 +37,8 @@ __all__ = [
     "CalculationScenario",
     "CalculationScenarioComponent",
     "CalculationResultMessagePolicy",
+    "User",
+    "Session",
+    "Diagnosis",
+    "Favorite",
 ]

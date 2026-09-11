@@ -13,9 +13,10 @@ struct AiDiagnosisView: View {
     @State private var photoCount = 0
     @State private var address = ""
     @State private var addressStatus: AddressStatus = .idle
+    /// construction_year_range 값(예: "2018_present") — 계산 API가 그대로 받는 키.
     @State private var selectedYear: String? = nil
-
-    private let yearOptions = ["2016년 7월 ~ 2023년 2월", "2023년 2월 이후"]
+    @State private var yearOptions: [ReferenceAPI.ConstructionYearRangeOption] = []
+    @State private var yearOptionsLoadFailed = false
 
     enum AddressStatus: Equatable {
         case idle, checking, ok(region: String), error(String)
@@ -47,6 +48,18 @@ struct AiDiagnosisView: View {
         }
         .background(Color(.systemBackground))
         .navigationBarHidden(true)
+        .task {
+            await loadYearOptions()
+        }
+    }
+
+    private func loadYearOptions() async {
+        do {
+            yearOptions = try await ReferenceAPI.constructionYearRanges()
+            yearOptionsLoadFailed = false
+        } catch {
+            yearOptionsLoadFailed = true
+        }
     }
 
     private var header: some View {
@@ -153,12 +166,12 @@ struct AiDiagnosisView: View {
             Text("건물 연도").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(hex: "535353"))
 
             Menu {
-                ForEach(yearOptions, id: \.self) { year in
-                    Button(year) { selectedYear = year }
+                ForEach(yearOptions, id: \.value) { option in
+                    Button(option.label) { selectedYear = option.value }
                 }
             } label: {
                 HStack {
-                    Text(selectedYear ?? "선택해주세요")
+                    Text(selectedYearLabel)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(selectedYear == nil ? Color(hex: "535353").opacity(0.5) : Color(hex: "535353"))
                     Spacer()
@@ -169,12 +182,26 @@ struct AiDiagnosisView: View {
                 .background(Color(hex: "BEBEBE").opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
             }
+            .disabled(yearOptions.isEmpty)
             .padding(3)
             .background(Color(.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
+
+            if yearOptionsLoadFailed {
+                Text("건물 연도 목록을 불러오지 못했어요.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.red)
+            }
         }
         .padding(.top, 24)
+    }
+
+    private var selectedYearLabel: String {
+        guard let selectedYear else {
+            return yearOptions.isEmpty && !yearOptionsLoadFailed ? "불러오는 중..." : "선택해주세요"
+        }
+        return yearOptions.first { $0.value == selectedYear }?.label ?? selectedYear
     }
 
     private var startButton: some View {

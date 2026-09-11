@@ -77,18 +77,27 @@ def test_window_type_candidate_unknown_is_rejected():
         )
 
 
-def test_lidar_input_source_is_rejected():
-    """api-spec.md 2.4: lidar는 예약값일 뿐 이번 MVP API가 받지 않는다."""
+def test_lidar_input_source_is_accepted():
+    request = CalculateRequest.model_validate(
+        _valid_payload(space={
+            "width_m": 4.2,
+            "depth_m": 3.5,
+            "height_m": 2.4,
+            "floor_area_m2": 14.7,
+            "input_source": "lidar",
+        })
+    )
+
+    assert request.space.input_source.value == "lidar"
+
+
+@pytest.mark.parametrize("section", ["window", "wall"])
+def test_lidar_input_source_is_rejected_for_non_lidar_sections(section):
+    payload = _valid_payload()
+    payload[section]["input_source"] = "lidar"
+
     with pytest.raises(ValidationError):
-        CalculateRequest.model_validate(
-            _valid_payload(space={
-                "width_m": 4.2,
-                "depth_m": 3.5,
-                "height_m": 2.4,
-                "floor_area_m2": 14.7,
-                "input_source": "lidar",
-            })
-        )
+        CalculateRequest.model_validate(payload)
 
 
 def test_non_positive_dimensions_are_rejected():

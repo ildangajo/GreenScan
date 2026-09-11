@@ -16,6 +16,7 @@ calc-v2(docs/result-screen-v9-design.md, 2026-09-12) 추가 후에는 아래도 
 - python -m app.db.seed.seed_energy_efficiency_bands (효율 레벨 LV.1~5 밴드)
 """
 
+import copy
 import os
 
 import pytest
@@ -87,6 +88,22 @@ def test_calculate_returns_baseline_and_scenarios(client):
     assert body["efficiency_level"]["band_level"] in range(1, 6)
     assert "참고용 추정치" in body["efficiency_level"]["disclaimer"]
     assert body["ai_summary"]
+
+
+def test_lidar_and_manual_sources_return_the_same_calculation(client):
+    """프론트가 확정한 수치가 같으면 입력 출처는 계산 결과에 영향을 주지 않는다."""
+    manual_payload = _valid_payload()
+    manual_payload["space"]["input_source"] = "manual"
+
+    lidar_payload = copy.deepcopy(manual_payload)
+    lidar_payload["space"]["input_source"] = "lidar"
+
+    manual_response = client.post("/api/v1/diagnoses/calculate", json=manual_payload)
+    lidar_response = client.post("/api/v1/diagnoses/calculate", json=lidar_payload)
+
+    assert manual_response.status_code == 200
+    assert lidar_response.status_code == 200
+    assert lidar_response.json() == manual_response.json()
 
 
 def test_scenario_priority_sorted_by_reduction_descending(client):

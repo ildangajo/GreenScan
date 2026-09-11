@@ -267,7 +267,7 @@
 
 - `window.window_type`은 `single/double/triple` 중 하나만 허용 (candidate의 `unknown`은 계산 입력으로 못 옴 — 사용자가 반드시 3개 중 하나로 확정).
 - `wall.visible_anomaly_confirmed`는 `suspected/none_observed` 중 하나만 허용 (계산값에는 영향 없음, 현장점검 안내 문구에만 영향).
-- `input_source`는 `manual` \| `user_corrected`만 허용, `lidar`는 이번 MVP에서 API가 받지 않음(스키마 예약만).
+- `space.input_source`는 `manual` \| `user_corrected` \| `lidar`를 허용한다. `window.input_source`와 `wall.input_source`는 LiDAR로 얻을 수 없는 사용자 확인값이 함께 포함되므로 `manual` \| `user_corrected`만 허용한다. 출처와 무관하게 프론트에서 확정해 전송한 면적에 동일한 계산식을 적용한다.
 - 서버는 `wall_net_area_m2 = exterior_total_area_m2 - window.total_area_m2` 를 계산해 0 이하면 차단.
 
 **Response 200**
@@ -343,7 +343,7 @@
 |---|---|---|---|
 | 400 | `UNSUPPORTED_REGION` | region_id가 지원 목록 밖 | 불가 |
 | 400 | `INVALID_ENUM_VALUE` | building_type/window_type/low_e/visible_anomaly_confirmed 등 허용값 밖 | 불가 |
-| 400 | `INVALID_INPUT_SOURCE` | input_source가 manual/user_corrected 밖 (예: lidar) | 불가 |
+| 400 | `INVALID_INPUT_SOURCE` | space는 manual/user_corrected/lidar 밖, window·wall은 manual/user_corrected 밖 | 불가 |
 | 422 | `WALL_NET_AREA_INVALID` | 외기접촉벽체순면적 ≤ 0 | 불가, 입력 화면 복귀 |
 | 422 | `UNCONFIRMED_INPUT` | window_type이 확정 안 됨 등 필수 확정값 누락 | 불가 |
 | 422 | `REFERENCE_DATA_MISSING` | 조합에 대한 U값/HDD/목표U값 기준 데이터 없음(calc-v2부터 `current_ceiling_u_value`/`current_floor_u_value`/`current_door_u_value`/`energy_efficiency_band`도 여기 포함) | 불가, `detail.missing`에 어떤 조회가 실패했는지 명시 |

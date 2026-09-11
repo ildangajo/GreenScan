@@ -52,25 +52,24 @@ struct HomeView: View {
                     let heroHeight = (geo.size.width - 32) * 160 / 359
 
                     ZStack(alignment: .top) {
-                        // ScrollView가 히어로와 같은 영역을 덮고 있어서(아래 참고),
-                        // 탭이 스크롤 제스처 인식에 가로채여 NavigationLink까지
-                        // 안 내려가는 경우가 있었다(2026-09-12, 실기기 리포트: "AI
-                        // 진단 시작하기 눌러도 안 넘어감"). 나머지 화면 전체가 쓰는
-                        // Button + navigationDestination(isPresented:) 패턴으로
-                        // 통일해서 이 모호성을 없앴다.
-                        Button {
-                            navigateToAiDiagnosis = true
-                        } label: {
-                            heroBanner(height: heroHeight)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
-                        .frame(height: heroHeight)
-
+                        // 이전 수정(Button + navigationDestination(isPresented:)로
+                        // 교체)도 안 먹혔던 진짜 이유: ZStack 안에서 ScrollView가
+                        // 히어로 Button보다 "뒤에" 선언돼 있었다 — SwiftUI ZStack은
+                        // 나중에 선언된 자식을 위에(앞에) 그리므로, 실제로는
+                        // ScrollView가 히어로 영역 위에 깔려 있었다. 투명 스페이서에
+                        // allowsHitTesting(false)를 줘도 ScrollView 컨테이너 자체가
+                        // 스크롤 제스처 인식을 위해 그 영역의 터치를 먼저 가져가서,
+                        // 탭 다운 시 버튼이 눌리는 것처럼 보이긴 해도(하이라이트) 탭
+                        // 업 시점에 제스처 우선권을 ScrollView가 가져가 버려 실제
+                        // 액션은 실행되지 않았다(2026-09-12, 실기기 재확인: "누르면
+                        // 반응하는데 화면이 안 바뀜"). ScrollView를 먼저 선언해서
+                        // 뒤로 보내고 히어로 Button을 마지막에 선언해 확실히 맨
+                        // 앞(위)에 오도록 순서를 뒤집었다.
                         ScrollView {
                             VStack(spacing: 0) {
-                                // 히어로와 같은 높이의 투명 스페이서. allowsHitTesting(false)로
-                                // 이 구간의 탭은 아래 히어로(Button)로 그대로 전달된다.
+                                // 히어로와 같은 높이의 투명 스페이서 — 실제 히어로는
+                                // 이제 이 ZStack의 맨 앞(뒤에 따로 선언)에 있으므로
+                                // 여기는 순수하게 레이아웃 공간만 차지한다.
                                 Color.clear
                                     .frame(height: heroHeight)
                                     .allowsHitTesting(false)
@@ -93,6 +92,15 @@ struct HomeView: View {
                                 }
                             }
                         }
+
+                        Button {
+                            navigateToAiDiagnosis = true
+                        } label: {
+                            heroBanner(height: heroHeight)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
+                        .frame(height: heroHeight)
                     }
                 }
             }

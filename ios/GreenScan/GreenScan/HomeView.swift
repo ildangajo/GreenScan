@@ -40,7 +40,7 @@ struct HomeView: View {
                     // (359:190, 배너가 화면의 절반 가까이 차지)보다 확실히 작게
                     // 줄였다. 겹침 재발을 막기 위해 .frame 뒤에 .clipped()도 붙여서
                     // 오버레이 콘텐츠가 프레임 밖으로 새는 걸 강제로 차단한다.
-                    let heroHeight = (geo.size.width - 32) * 130 / 359
+                    let heroHeight = (geo.size.width - 32) * 160 / 359
 
                     ZStack(alignment: .top) {
                         NavigationLink(destination: AiDiagnosisView()) {
@@ -233,7 +233,7 @@ struct HomeView: View {
             }
         }
         .padding(.trailing, 20)
-        .padding(.bottom, 96)
+        .padding(.bottom, 70)
         // 메뉴 열렸을 때 바깥(화면 전체)을 탭하면 닫힌다.
         .background(alignment: .topLeading) {
             if fabOpen {

@@ -252,45 +252,48 @@ private struct RecentBuildingCard: View {
 
                 HStack(spacing: 8) {
                     Text("분석완료")
-                        .font(.system(size: 7, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Color(hex: "2fcbaa").opacity(0.8))
                         .clipShape(Capsule())
                     Text(building.date)
-                        .font(.system(size: 8))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color(hex: "535353").opacity(0.8))
                 }
 
                 // 웹은 절감률/비용 값 폰트 크기를 다르게 줘서(16px vs 14px)
                 // 절감률 숫자가 더 눈에 띄게 했다 — 그 위계를 그대로 따른다.
+                // Figma 원본 스펙은 label 5px/배지 7px/날짜 8px이었지만, 실제
+                // 기기에서 재보니 너무 작아 읽기 어렵다는 PM 피드백(2026-09-12)에
+                // 따라 가독성 기준으로 키웠다 — 위계(값 > 라벨/배지/날짜)는 유지.
                 HStack(spacing: 6) {
-                    metricBox(label: "에너지 절감률", value: "\(building.reductionRate)%", valueSize: 16)
-                    metricBox(label: "예상 비용", value: building.costText, valueSize: 14)
+                    metricBox(label: "에너지 절감률", value: "\(building.reductionRate)%", valueSize: 19)
+                    metricBox(label: "예상 비용", value: building.costText, valueSize: 17)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.leading, 6).padding(.trailing, 16).padding(.vertical, 6)
-        .frame(height: 98)
+        .padding(.leading, 6).padding(.trailing, 16).padding(.vertical, 8)
+        .frame(height: 114)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
         .overlay(alignment: .trailing) {
             Image("home-chevron")
                 .resizable()
-                .frame(width: 4.5, height: 9)
+                .frame(width: 6, height: 12)
                 .padding(.trailing, 14)
         }
     }
 
     private func metricBox(label: String, value: String, valueSize: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 5)).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(Color(hex: "535353").opacity(0.8))
             Text(value).font(.system(size: valueSize, weight: .semibold)).foregroundStyle(Color(hex: "176b52"))
         }
-        .padding(6)
-        .frame(width: 81, height: 39, alignment: .leading)
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .frame(width: 98, height: 46, alignment: .leading)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: .black.opacity(0.1), radius: 6, y: 1)

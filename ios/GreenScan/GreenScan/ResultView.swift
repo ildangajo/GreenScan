@@ -10,9 +10,11 @@ import SwiftUI
 struct ResultView: View {
     @Environment(DiagnosisFlowState.self) private var flow
     @Environment(DiagnosisNavigationPath.self) private var diagnosisNavigationPath
+    @Environment(AuthState.self) private var auth
     @Environment(\.dismiss) private var dismiss
 
     @State private var result: LoadState = .loading
+    @State private var saveState: SaveState = .idle
 
     private static let urgencyLabel = ["긴급", "주의", "권장"]
     private static let urgencyBadgeColor: [Color] = [.red, .orange, .gray]
@@ -35,6 +37,10 @@ struct ResultView: View {
         case loading
         case ok(CalculateAPI.CalculateResponse)
         case error(code: String?, message: String)
+    }
+
+    enum SaveState: Equatable {
+        case idle, saving, saved, failed(String)
     }
 
     var body: some View {
@@ -136,6 +142,66 @@ struct ResultView: View {
                 Text("계산 버전 \(data.calculation_version) · 기준 U값(창호 \(data.reference_data_version.current_u_value_window) → 목표 \(data.reference_data_version.target_u_value)) · HDD \(data.reference_data_version.hdd)")
                     .font(.system(size: 10))
                     .foregroundStyle(Color(hex: "535353").opacity(0.4))
+
+                saveSection(data)
+            }
+        }
+    }
+
+    /// 저장 시점(계산 즉시 자동 vs 사용자가 명시적으로 누름)은 PRD상 아직
+    /// 정책 확정 전이라(db-spec.md 9장, api-spec.md 1.1), 자동 저장하지 않고
+    /// 명시적 버튼으로만 저장한다. 로그인하지 않았거나(오프라인 데모 계정
+    /// 포함) 세션 토큰이 없으면 저장 자체를 시도하지 않는다.
+    @ViewBuilder
+    private func saveSection(_ data: CalculateAPI.CalculateResponse) -> some View {
+        if auth.sessionToken == nil {
+            Text(
+                auth.isLoggedIn
+                    ? "오프라인 데모 계정은 결과를 저장할 수 없어요. 실제 계정으로 로그인해주세요."
+                    : "로그인하면 이 결과를 마이페이지에 저장할 수 있어요."
+            )
+            .font(.system(size: 12))
+            .foregroundStyle(Color(hex: "535353").opacity(0.6))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 4)
+        } else {
+            switch saveState {
+            case .idle, .saving:
+                Button {
+                    Task { await saveDiagnosis(data) }
+                } label: {
+                    HStack(spacing: 6) {
+                        if saveState == .saving {
+                            ProgressView().tint(Color(hex: "176b52"))
+                        }
+                        Text(saveState == .saving ? "저장 중..." : "이 결과 저장하기")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: "176b52"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(hex: "176b52"), lineWidth: 1.5))
+                }
+                .disabled(saveState == .saving)
+            case .saved:
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("마이페이지에 저장됐어요.")
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color(hex: "176b52"))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            case .failed(let message):
+                VStack(spacing: 8) {
+                    Text(message).font(.system(size: 12)).foregroundStyle(.red)
+                    Button {
+                        Task { await saveDiagnosis(data) }
+                    } label: {
+                        Text("다시 시도").font(.system(size: 13, weight: .semibold)).foregroundStyle(.red)
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -279,14 +345,10 @@ struct ResultView: View {
         return percent == percent.rounded() ? "\(Int(percent))" : String(format: "%.1f", percent)
     }
 
-    @MainActor
-    private func runCalculate() async {
-        guard !flow.regionId.isEmpty else {
-            result = .error(code: nil, message: "건물 주소가 확인되지 않았어요. 처음(AI 분석하기)으로 돌아가 주소를 확인해주세요.")
-            return
-        }
-
-        let payload = CalculateAPI.CalculateRequest(
+    /// runCalculate()와 saveDiagnosis()가 같은 값을 써야 한다 — 저장하는
+    /// confirmed_input은 실제로 계산에 쓰인 요청과 정확히 같아야 의미가 있다.
+    private func makeCalculateRequest() -> CalculateAPI.CalculateRequest {
+        CalculateAPI.CalculateRequest(
             building: .init(
                 building_type: flow.buildingType,
                 representative_space_type: flow.spaceType,
@@ -313,7 +375,16 @@ struct ResultView: View {
             ),
             location: .init(region_id: flow.regionId)
         )
+    }
 
+    @MainActor
+    private func runCalculate() async {
+        guard !flow.regionId.isEmpty else {
+            result = .error(code: nil, message: "건물 주소가 확인되지 않았어요. 처음(AI 분석하기)으로 돌아가 주소를 확인해주세요.")
+            return
+        }
+
+        let payload = makeCalculateRequest()
         do {
             let response = try await CalculateAPI.calculate(payload)
             result = .ok(response)
@@ -323,10 +394,30 @@ struct ResultView: View {
             result = .error(code: nil, message: "계산 요청에 실패했습니다.")
         }
     }
+
+    @MainActor
+    private func saveDiagnosis(_ data: CalculateAPI.CalculateResponse) async {
+        guard let token = auth.sessionToken else { return }
+        saveState = .saving
+        do {
+            _ = try await DiagnosesAPI.create(
+                buildingTypeKey: flow.buildingType,
+                regionId: flow.regionId,
+                confirmedInput: makeCalculateRequest(),
+                calculationResult: data,
+                token: token
+            )
+            saveState = .saved
+        } catch {
+            let message = (error as? ApiError)?.message ?? "저장에 실패했습니다."
+            saveState = .failed(message)
+        }
+    }
 }
 
 #Preview {
     ResultView()
         .environment(DiagnosisFlowState())
         .environment(DiagnosisNavigationPath())
+        .environment(AuthState())
 }

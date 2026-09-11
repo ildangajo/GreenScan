@@ -18,6 +18,7 @@ struct PhotoUploadView: View {
 
     @State private var windowSlot: SlotState = .empty
     @State private var wallSlot: SlotState = .empty
+    @State private var navigateToResult = false
 
     private static let windowTypeOptions = [
         ("single", "단창"), ("double", "복층창"), ("triple", "삼중창"),
@@ -126,6 +127,9 @@ struct PhotoUploadView: View {
         }
         .background(Color(.systemBackground))
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $navigateToResult) {
+            ResultView()
+        }
     }
 
     private func isEmpty(_ slot: SlotState) -> Bool {
@@ -173,7 +177,7 @@ struct PhotoUploadView: View {
 
     private var nextButton: some View {
         Button {
-            // TODO: 계산 실행 + 결과 화면(다음 항목)으로 이어붙인다.
+            navigateToResult = true
         } label: {
             Text("다음")
                 .font(.system(size: 15, weight: .semibold))

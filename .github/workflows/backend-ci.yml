@@ -117,9 +117,11 @@ jobs:
             -f backend/Dockerfile \
             -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
             -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:staging" \
             backend
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:staging"
 
   deploy-main:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -2,7 +2,7 @@ import base64
 import json
 import logging
 
-from openai import APIError, APITimeoutError, OpenAI
+from openai import APIConnectionError, APIError, APITimeoutError, InternalServerError, OpenAI
 from pydantic import ValidationError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
@@ -35,9 +35,9 @@ _BASE_SYSTEM_PROMPT = """\
   찍혔으면 photo_quality를 retake_required로 표시한다.
 - 판단이 애매하면 unknown/unassessable을 적극적으로 사용한다. 추측으로 값을
   채우지 않는다.
-- 사용자가 보낸 사진 카테고리(window 또는 wall)를 신뢰하되, 사진 내용이
-  명백히 다른 대상이면 component_type을 실제로 보이는 대상으로 정정하고
-  reason_summary에 그 이유를 적는다.
+- 입력 사진 카테고리는 아래 안내된 값이다. component_type은 이 카테고리와
+  일치해야 하며, 사진이 해당 카테고리로 보이지 않으면 component_type을
+  "unknown"으로 답하고 reason_summary에 그 이유를 적는다.
 
 반드시 주어진 JSON 스키마 형식으로만 응답한다.
 """
@@ -109,11 +109,18 @@ def _fallback_result(status: AssessmentStatus, reason: str) -> VisionAnalysisRes
     )
 
 
+# api-spec.md 5.3 정책 확정 (2026-09-11, BE-B):
+# 일시적 오류(타임아웃, 연결 오류, 5xx)에 한해 최대 3회, 1초→8초 지수 백오프로
+# 재시도한다. 4xx(잘못된 요청, 인증 실패 등)는 재시도해도 성공할 수 없으므로
+# 대상에서 제외한다.
+_RETRYABLE_EXCEPTIONS = (APITimeoutError, APIConnectionError, InternalServerError)
+
+
 @retry(
     reraise=True,
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=8),
-    retry=retry_if_exception_type((APITimeoutError,)),
+    retry=retry_if_exception_type(_RETRYABLE_EXCEPTIONS),
 )
 def _call_vision_api(category: PhotoCategory, image_bytes: bytes, content_type: str) -> str:
     """OpenAI Vision API를 일회성으로 호출한다. 이미지는 이 함수 스코프 밖으로 유출되지 않는다."""
@@ -151,7 +158,11 @@ def analyze_photo(category: PhotoCategory, image_bytes: bytes, content_type: str
     """
     try:
         raw_content = _call_vision_api(category, image_bytes, content_type)
-    except (APITimeoutError, APIError) as exc:
+    except APIError as exc:
+        # APIError는 APITimeoutError/APIConnectionError/RateLimitError/
+        # InternalServerError 등 openai SDK의 모든 API 예외의 공통 상위 클래스다.
+        # 재시도는 _RETRYABLE_EXCEPTIONS만 대상이고, 4xx처럼 재시도해도 소용없는
+        # 오류는 여기서 곧바로 failed로 정규화된다.
         logger.warning("vision api call failed: %s", exc)
         return _fallback_result(AssessmentStatus.failed, "AI 분석에 실패했습니다. 수동으로 선택해주세요.")
 

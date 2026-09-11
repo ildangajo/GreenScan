@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import HomePage from "../features/home/HomePage";
 import LoginPage from "../features/auth/LoginPage";
+import SignupPage from "../features/auth/SignupPage";
 import AiDiagnosisStartPage from "../features/ai-diagnosis/AiDiagnosisStartPage";
 import RecommendationPage from "../features/recommendation/RecommendationPage";
 import SavedPage from "../features/saved/SavedPage";
@@ -28,6 +29,8 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      {/* PRD v8.1: 실제로는 자체 회원가입 플로우가 없다 — UI만 존재, onSignup 미연결 */}
+      <Route path="/signup" element={<SignupPage />} />
       <Route path="/ai-diagnosis" element={<AiDiagnosisStartPage />} />
       <Route path="/news" element={<RecommendationPage />} />
       <Route path="/saved" element={<SavedPage />} />

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import BottomNav from "../../components/ui/BottomNav";
 import buildingGangnam from "./assets/building-gangnam.png";
 import buildingGangbuk from "./assets/building-gangbuk.png";
 import chevronIcon from "./assets/chevron.svg";
@@ -46,14 +47,6 @@ const MOCK_RECENT: RecentBuilding[] = [
   { id: "7", title: "서울시 영등포구 OO빌딩", date: "2024.12.02", reductionRate: 0.29, costText: "760만원" },
   { id: "8", title: "서울시 성동구 OO주택", date: "2026.01.30", reductionRate: 0.55, costText: "1,470만원" },
 ];
-
-const NAV_ITEMS = [
-  { key: "home", label: "홈", hasDot: true },
-  { key: "map", label: "위치", hasDot: true },
-  { key: "saved", label: "저장", hasDot: false },
-  { key: "news", label: "추천", hasDot: false },
-  { key: "mypage", label: "마이페이지", hasDot: false },
-] as const;
 
 const FAB_MENU_ITEMS = [
   { key: "terms", label: "이용약관" },
@@ -229,22 +222,7 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* 하단 탭바 */}
-      <nav className="z-10 flex shrink-0 justify-around border-t border-neutral-100 bg-white px-2 py-2">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={`relative flex flex-col items-center gap-1 px-2 py-1.5 text-[11px] ${
-              item.key === "home" ? "text-neutral-900" : "text-neutral-400"
-            }`}
-          >
-            <NavIcon name={item.key} active={item.key === "home"} />
-            {item.hasDot && <span className="absolute right-1 top-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
-            <span className={item.key === "home" ? "font-semibold" : ""}>{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <BottomNav active="home" />
     </div>
   );
 }
@@ -289,47 +267,4 @@ function RecentBuildingCard({ building }: { building: RecentBuilding }) {
       <img src={chevronIcon} alt="" className="absolute right-[14px] top-1/2 h-[9px] w-[4.5px] -translate-y-1/2" />
     </button>
   );
-}
-
-function NavIcon({ name, active }: { name: string; active: boolean }) {
-  const stroke = active ? "#111827" : "#9CA3AF";
-  const common = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke, strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-
-  switch (name) {
-    case "home":
-      return (
-        <svg {...common}>
-          <path d="M3 11 12 4l9 7" />
-          <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
-        </svg>
-      );
-    case "map":
-      return (
-        <svg {...common}>
-          <path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z" />
-          <circle cx="12" cy="10" r="2.5" />
-        </svg>
-      );
-    case "saved":
-      return (
-        <svg {...common}>
-          <path d="M20.8 4.6c-1.6-1.6-4.2-1.6-5.8 0L12 7.6l-3-3c-1.6-1.6-4.2-1.6-5.8 0-1.6 1.6-1.6 4.2 0 5.8l8.8 8.8 8.8-8.8c1.6-1.6 1.6-4.2 0-5.8Z" />
-        </svg>
-      );
-    case "news":
-      return (
-        <svg {...common}>
-          <path d="m12 2 2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7-5.4-4.7 7.1-.6L12 2Z" />
-        </svg>
-      );
-    case "mypage":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
-        </svg>
-      );
-    default:
-      return null;
-  }
 }

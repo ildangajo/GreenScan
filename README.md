@@ -10,8 +10,19 @@
 
 ## 로컬 실행
 
+처음 clone 받았다면 `.env` 파일을 먼저 준비한다 (`.env`는 gitignore 대상이라 저장소에 없음).
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+이후 아래 명령으로 DB, 백엔드, 프론트엔드를 함께 띄운다.
+
 ```bash
 docker compose up --build
 ```
 
-자세한 제품 요구사항은 [docs/prd/GreenScan_PRD_v7.md](docs/prd/GreenScan_PRD_v7.md) 참고.
+`backend` 컨테이너는 기동 시 `alembic upgrade head`를 자동 실행해 `docs/db-spec.md` 기준 스키마를 PostgreSQL에 생성한다. 실제 U값/HDD 등 정책 수치는 아직 시드하지 않았으므로 테이블만 만들어진 상태다.
+
+자세한 제품 요구사항은 [docs/prd/GreenScan_PRD_v7.md](docs/prd/GreenScan_PRD_v7.md), DB 설계는 [docs/db-spec.md](docs/db-spec.md) 참고.

@@ -57,18 +57,24 @@ enum APIClient {
         }
 
         guard (200..<300).contains(http.statusCode) else {
-            let body = try? JSONDecoder().decode(ApiErrorBody.self, from: data)
-            throw ApiError(
-                message: body?.detail?.message ?? body?.message ?? "요청을 처리하지 못했습니다.",
-                status: http.statusCode,
-                code: body?.detail?.error_code
-            )
+            throw makeError(status: http.statusCode, data: data)
         }
 
         if (http.statusCode == 204 || data.isEmpty), let empty = EmptyResponse() as? T {
             return empty
         }
         return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    /// JSON이 아닌 요청(예: PhotosAPI의 multipart 업로드)도 같은 에러 응답
+    /// 형식을 공유하므로, 파싱 로직을 여기서 공용으로 노출한다.
+    static func makeError(status: Int, data: Data) -> ApiError {
+        let body = try? JSONDecoder().decode(ApiErrorBody.self, from: data)
+        return ApiError(
+            message: body?.detail?.message ?? body?.message ?? "요청을 처리하지 못했습니다.",
+            status: status,
+            code: body?.detail?.error_code
+        )
     }
 }
 

@@ -11,6 +11,7 @@ struct SpaceInputView: View {
     @State private var insulationOptions: [ReferenceAPI.OptionItem] = []
     @State private var insulationOptionsLoadFailed = false
     @State private var showRoomScan = false
+    @State private var navigateToPhotoUpload = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -92,6 +93,9 @@ struct SpaceInputView: View {
         }
         .background(Color(.systemBackground))
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $navigateToPhotoUpload) {
+            PhotoUploadView()
+        }
         .task {
             await loadInsulationOptions()
         }
@@ -198,7 +202,7 @@ struct SpaceInputView: View {
 
     private var nextButton: some View {
         Button {
-            // TODO: 사진 업로드 + AI 후보 확인 화면(다음 항목)으로 이어붙인다.
+            navigateToPhotoUpload = true
         } label: {
             Text("다음")
                 .font(.system(size: 15, weight: .semibold))

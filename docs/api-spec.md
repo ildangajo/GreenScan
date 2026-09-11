@@ -222,6 +222,8 @@
 
 사용자 확정값 일괄 전달 → 서버 계산 → 기준선/시나리오 반환.
 
+**구현 완료 (2026-09-11)**: `app/services/calculation_service.py` + `app/api/routes/calculate.py`. 시나리오 3개(창호개선/벽체개선/복합개선)는 `calculation_policies` 등 DB 정책 테이블을 아직 쓰지 않고 PRD 예시 그대로 서버 코드에 하드코딩했다(PRD 9.2: 계산식은 서버 코드가 수행, 정책 테이블은 버전 식별용). 인증 불필요 — 계산 자체는 비로그인으로 가능하고, 결과를 계정에 저장하려면 별도로 `POST /diagnoses`를 호출해야 한다. 실제 시드 데이터로 수동 검산 및 자동 테스트(`tests/test_calculate.py`) 완료.
+
 **Request**
 ```json
 {

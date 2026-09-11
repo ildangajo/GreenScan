@@ -1,3 +1,5 @@
+import PhotosUI
+import RoomPlan
 import SwiftUI
 
 /// frontend/src/features/ai-diagnosis/AiDiagnosisStartPage.tsx의 포팅.
@@ -13,6 +15,11 @@ struct AiDiagnosisView: View {
     @Environment(DiagnosisFlowState.self) private var flow
 
     @State private var photoCount = 0
+    // PM 지시(2026-09-12): 라이다 탑재 기기(iPhone Pro/iPad Pro)는 사진 대신
+    // 라이다 스캔으로, 아닌 기기는 실제 사진 선택으로 갈린다.
+    @State private var showRoomScan = false
+    @State private var lidarScanApplied = false
+    @State private var photoPickerItems: [PhotosPickerItem] = []
     @State private var address = ""
     @State private var addressStatus: AddressStatus = .idle
     /// construction_year_range 값(예: "2018_present") — 계산 API가 그대로 받는 키.
@@ -83,27 +90,68 @@ struct AiDiagnosisView: View {
         .padding(.bottom, 12)
     }
 
+    // 라이다 탑재 기기는 RoomScanView(스캔)로, 아닌 기기는 실제 사진 선택
+    // (PhotosPicker)으로 갈린다 — 둘 다 같은 카드 모양을 쓰되 탭했을 때
+    // 여는 것만 다르다.
     private var photoCard: some View {
-        Button {
-            photoCount = 1 // 데모: 실제 포토피커는 진단 플로우와 함께 연결 예정
-        } label: {
-            VStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(Color(hex: "2fcbaa")).frame(width: 53, height: 53)
-                    Image("icon-layers").resizable().frame(width: 24, height: 24)
+        Group {
+            if RoomCaptureSession.isSupported {
+                Button {
+                    showRoomScan = true
+                } label: {
+                    photoCardContent
                 }
-                Text("사진").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color(hex: "535353"))
-                Text(photoCount > 0 ? "\(photoCount)장 선택됨" : "창호,천장,벽 등을 업로드 해주세요")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color(hex: "535353"))
+            } else {
+                PhotosPicker(selection: $photoPickerItems, maxSelectionCount: 10, matching: .images) {
+                    photoCardContent
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 27)
-            .padding(.horizontal, 38)
         }
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+        .fullScreenCover(isPresented: $showRoomScan) {
+            RoomScanView().environment(flow)
+        }
+        .onChange(of: showRoomScan) { wasShowing, isShowing in
+            // 시트가 닫혔는데(스캔 화면에서 "이 값으로 채우기"를 눌러 flow에
+            // 값이 반영된 상태라면) 라이다로 완료됐다고 표시한다.
+            if wasShowing, !isShowing, !flow.width.isEmpty {
+                lidarScanApplied = true
+            }
+        }
+        .onChange(of: photoPickerItems) { _, items in
+            photoCount = items.count
+        }
+    }
+
+    private var photoCardContent: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle().fill(Color(hex: "2fcbaa")).frame(width: 53, height: 53)
+                Image(systemName: RoomCaptureSession.isSupported ? "arkit" : "photo.on.rectangle")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundStyle(.white)
+                    .frame(width: 24, height: 24)
+            }
+            Text(RoomCaptureSession.isSupported ? "라이다 스캔" : "사진")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(hex: "535353"))
+            Text(photoCardSubtitle)
+                .font(.system(size: 12))
+                .foregroundStyle(Color(hex: "535353"))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 27)
+        .padding(.horizontal, 38)
+    }
+
+    private var photoCardSubtitle: String {
+        if RoomCaptureSession.isSupported {
+            return lidarScanApplied ? "라이다로 측정 완료" : "라이다로 공간을 스캔해주세요"
+        }
+        return photoCount > 0 ? "\(photoCount)장 선택됨" : "창호,천장,벽 등을 업로드 해주세요"
     }
 
     private var headline: some View {

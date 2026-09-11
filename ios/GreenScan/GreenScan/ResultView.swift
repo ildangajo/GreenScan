@@ -345,6 +345,17 @@ struct ResultView: View {
         return percent == percent.rounded() ? "\(Int(percent))" : String(format: "%.1f", percent)
     }
 
+    /// 계산 API의 InputSource enum은 아직 "manual"/"user_corrected"만 받는다
+    /// — "lidar"는 PRD상 예약값일 뿐이라 그대로 보내면 400
+    /// INVALID_INPUT_SOURCE로 거부당한다(2026-09-12 재확인,
+    /// docs/lidar-space-capture-proposal.md). BE가 lidar를 실제로 받아주기
+    /// 전까지는 "사람이 아예 손 안 댄 값은 아니다"라는 의미로 가장 가까운
+    /// "user_corrected"에 매핑해서 보낸다. BE가 enum을 열어주면 이 매핑을
+    /// 지우고 flow.spaceInputSource를 그대로 보내면 된다.
+    private func apiInputSource(_ internalSource: String) -> String {
+        internalSource == "lidar" ? "user_corrected" : internalSource
+    }
+
     /// runCalculate()와 saveDiagnosis()가 같은 값을 써야 한다 — 저장하는
     /// confirmed_input은 실제로 계산에 쓰인 요청과 정확히 같아야 의미가 있다.
     private func makeCalculateRequest() -> CalculateAPI.CalculateRequest {
@@ -359,7 +370,7 @@ struct ResultView: View {
                 depth_m: Double(flow.depth) ?? 0,
                 height_m: Double(flow.height) ?? 0,
                 floor_area_m2: Double(flow.floorArea) ?? 0,
-                input_source: "manual"
+                input_source: apiInputSource(flow.spaceInputSource)
             ),
             window: .init(
                 total_area_m2: Double(flow.windowArea) ?? 0,

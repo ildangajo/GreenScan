@@ -148,6 +148,12 @@ struct RoomScanView: View {
         flow.floorArea = measurement.formattedFloorArea
         flow.windowArea = measurement.formattedWindowArea
         flow.wallArea = measurement.formattedSelectedWallArea
+        // 팀원 리뷰(2026-09-12) 반영: 치수 출처를 "lidar"로 기록해둔다 —
+        // SpaceInputView에서 이 값을 사용자가 다시 고치면 "user_corrected"로
+        // 내려간다. 계산 API에 보낼 땐 ResultView가 아직 BE가 안 받아주는
+        // "lidar"를 "user_corrected"로 매핑해서 보낸다(InputSource enum이
+        // lidar를 실제로 받기 전까지의 임시 다리 — docs/lidar-space-capture-proposal.md).
+        flow.spaceInputSource = "lidar"
     }
 }
 

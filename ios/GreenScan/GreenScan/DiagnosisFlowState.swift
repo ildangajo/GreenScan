@@ -30,6 +30,14 @@ final class DiagnosisFlowState {
     var wallArea = ""
     var insulationStatus = ""
 
+    /// 가로/세로/높이/바닥면적의 출처 — "manual"(직접 입력) | "lidar"(스캔
+    /// 그대로) | "user_corrected"(스캔값을 사용자가 다시 고침). 계산 API의
+    /// window/wall input_source는 창호유형·Low-E·단열상태처럼 라이다로는
+    /// 절대 못 얻는 값을 항상 같이 포함하고 있어서 그쪽은 그대로
+    /// "user_corrected" 고정으로 둔다(ResultView 참고) — 여기서 추적하는 건
+    /// 순수 치수(SpaceInput) 블록 하나뿐이다.
+    var spaceInputSource = "manual"
+
     // 사진업로드/AI확인 화면에서 채움
     var windowTypeConfirmed = "double"
     var lowE = "unknown"
@@ -59,6 +67,7 @@ final class DiagnosisFlowState {
         windowArea = ""
         wallArea = ""
         insulationStatus = ""
+        spaceInputSource = "manual"
         windowTypeConfirmed = "double"
         lowE = "unknown"
         anomalyConfirmed = "none_observed"

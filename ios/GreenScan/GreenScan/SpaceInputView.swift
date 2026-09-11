@@ -24,14 +24,14 @@ struct SpaceInputView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("공간 치수").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(hex: "535353"))
                         HStack(spacing: 8) {
-                            numericField("가로 (m)", text: bindingFor(\.width), placeholder: "예: 4.2")
-                            numericField("세로 (m)", text: bindingFor(\.depth), placeholder: "예: 3.5")
-                            numericField("높이 (m)", text: bindingFor(\.height), placeholder: "예: 2.4")
+                            numericField("가로 (m)", text: dimensionBindingFor(\.width), placeholder: "예: 4.2")
+                            numericField("세로 (m)", text: dimensionBindingFor(\.depth), placeholder: "예: 3.5")
+                            numericField("높이 (m)", text: dimensionBindingFor(\.height), placeholder: "예: 2.4")
                         }
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        numericField("바닥면적 (m²) — 참고용, 계산에는 사용되지 않음", text: bindingFor(\.floorArea), placeholder: "예: 14.7")
+                        numericField("바닥면적 (m²) — 참고용, 계산에는 사용되지 않음", text: dimensionBindingFor(\.floorArea), placeholder: "예: 14.7")
                         Text("바닥면적은 가로×세로 입력값과의 교차 확인용으로만 쓰입니다.")
                             .font(.system(size: 12))
                             .foregroundStyle(Color(hex: "535353").opacity(0.6))
@@ -155,6 +155,21 @@ struct SpaceInputView: View {
 
     private func bindingFor(_ keyPath: ReferenceWritableKeyPath<DiagnosisFlowState, String>) -> Binding<String> {
         Binding(get: { flow[keyPath: keyPath] }, set: { flow[keyPath: keyPath] = $0 })
+    }
+
+    /// 가로/세로/높이/바닥면적 전용 — 라이다 스캔값을 사용자가 여기서 다시
+    /// 고치면 출처를 "user_corrected"로 내린다(팀원 리뷰 반영, 2026-09-12).
+    /// 애초에 수동 입력("manual")이던 값은 계속 manual로 둔다.
+    private func dimensionBindingFor(_ keyPath: ReferenceWritableKeyPath<DiagnosisFlowState, String>) -> Binding<String> {
+        Binding(
+            get: { flow[keyPath: keyPath] },
+            set: { newValue in
+                flow[keyPath: keyPath] = newValue
+                if flow.spaceInputSource == "lidar" {
+                    flow.spaceInputSource = "user_corrected"
+                }
+            }
+        )
     }
 
     private var header: some View {

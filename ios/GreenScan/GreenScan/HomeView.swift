@@ -391,10 +391,22 @@ private struct RecentBuilding: Identifiable {
 private struct RecentBuildingCard: View {
     let building: RecentBuilding
 
+    /// 사진은 서버에 원본을 저장하지 않으므로(PRD) 진단별 실제 사진은 없다 —
+    /// 5장의 인테리어 사진을 진단 ID 기준으로 결정적으로 골라 장식용
+    /// 썸네일로 쓴다(같은 카드는 다시 렌더링돼도 항상 같은 사진).
+    private static let thumbnailAssetNames = (1...5).map { "home-recent-thumb-\($0)" }
+
+    private var thumbnailAssetName: String {
+        let index = abs(building.id.hashValue) % Self.thumbnailAssetNames.count
+        return Self.thumbnailAssetNames[index]
+    }
+
     var body: some View {
         HStack(spacing: 13) {
             // PM 요청(2026-09-12)으로 썸네일 확대: 101x85 -> 118x100.
-            LinearGradient(colors: [Color(hex: "e4efe9"), Color(hex: "7fae93")], startPoint: .topLeading, endPoint: .bottomTrailing)
+            Image(thumbnailAssetName)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
                 .frame(width: 118, height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 

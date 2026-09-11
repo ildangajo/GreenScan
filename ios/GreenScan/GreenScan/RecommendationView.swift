@@ -16,8 +16,7 @@ struct RecommendationView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
-                    // TODO: 실제 상단 광고/캠페인 배너 콘텐츠가 정해지면 이 자리에 채운다(웹과 동일 메모)
-                    RoundedRectangle(cornerRadius: 16).fill(Color.brand100).frame(height: 80)
+                    AutoRotatingBanner(imageNames: ["recommendation-banner-1", "recommendation-banner-2"])
 
                     ForEach(NewsItem.samples) { item in
                         Link(destination: item.url) {
@@ -49,6 +48,38 @@ struct RecommendationView: View {
             }
         }
         .background(Color(.systemBackground))
+    }
+}
+
+/// 상단 캠페인 배너 — 두 이미지를 몇 초마다 자동으로 넘긴다. 사용자가 직접
+/// 스와이프해도 되고(TabView 기본 동작), 그러면 타이머가 다음 틱에 그
+/// 지점부터 다시 이어서 자동 재생한다.
+private struct AutoRotatingBanner: View {
+    let imageNames: [String]
+    @State private var index = 0
+
+    private let timer = Timer.publish(every: 3.5, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        TabView(selection: $index) {
+            ForEach(Array(imageNames.enumerated()), id: \.offset) { offset, name in
+                Image(name)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(height: 160)
+                    .clipped()
+                    .tag(offset)
+            }
+        }
+        .frame(height: 160)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .tabViewStyle(.page(indexDisplayMode: .always))
+        .indexViewStyle(.page(backgroundDisplayMode: .always))
+        .onReceive(timer) { _ in
+            withAnimation {
+                index = (index + 1) % imageNames.count
+            }
+        }
     }
 }
 

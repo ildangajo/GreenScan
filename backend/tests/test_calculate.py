@@ -9,6 +9,11 @@
 - target_window_u_value(apartment_group, jungbu-2) = 1.000
 - target_wall_u_value(apartment_group, jungbu-2) = 0.170
 - hdd(seoul) = 2380.1
+
+calc-v2(docs/result-screen-v9-design.md, 2026-09-12) 추가 후에는 아래도 시드돼
+있어야 한다 — 없으면 REFERENCE_DATA_MISSING(422)으로 막힌다:
+- python -m app.db.seed.seed_envelope_u_values (천장/바닥/문 현재 U값)
+- python -m app.db.seed.seed_energy_efficiency_bands (효율 레벨 LV.1~5 밴드)
 """
 
 import os
@@ -63,13 +68,25 @@ def test_calculate_returns_baseline_and_scenarios(client):
     # 직접 검산: U × area × 24 × hdd / 1000
     assert body["baseline"]["window_heat_loss_kwh"] == pytest.approx(3.4 * 3.6 * 24 * 2380.1 / 1000, rel=1e-6)
     assert body["baseline"]["wall_heat_loss_kwh"] == pytest.approx(0.260 * 8.4 * 24 * 2380.1 / 1000, rel=1e-6)
+    # calc-v2(docs/result-screen-v9-design.md): total은 이제 창호+벽체뿐 아니라
+    # 천장/바닥/문까지 5개 부위 합계다 — window+wall 합만으로는 더 이상 안 맞는다.
     assert body["baseline"]["total_heat_loss_kwh"] == pytest.approx(
-        body["baseline"]["window_heat_loss_kwh"] + body["baseline"]["wall_heat_loss_kwh"], rel=1e-9
+        body["baseline"]["window_heat_loss_kwh"]
+        + body["baseline"]["wall_heat_loss_kwh"]
+        + body["baseline"]["ceiling_heat_loss_kwh"]
+        + body["baseline"]["floor_heat_loss_kwh"]
+        + body["baseline"]["door_heat_loss_kwh"],
+        rel=1e-9,
     )
 
     assert len(body["scenarios"]) == 3
     scenario_ids = {s["scenario_id"] for s in body["scenarios"]}
     assert scenario_ids == {"window_upgrade", "wall_upgrade", "combined_upgrade"}
+
+    # calc-v2 신규 필드도 항상 채워져야 한다.
+    assert body["efficiency_level"]["band_level"] in range(1, 6)
+    assert "참고용 추정치" in body["efficiency_level"]["disclaimer"]
+    assert body["ai_summary"]
 
 
 def test_scenario_priority_sorted_by_reduction_descending(client):

@@ -225,6 +225,11 @@
 
 **구현 완료 (2026-09-11)**: `app/services/calculation_service.py` + `app/api/routes/calculate.py`. 시나리오 3개(창호개선/벽체개선/복합개선)는 `calculation_policies` 등 DB 정책 테이블을 아직 쓰지 않고 PRD 예시 그대로 서버 코드에 하드코딩했다(PRD 9.2: 계산식은 서버 코드가 수행, 정책 테이블은 버전 식별용). 인증 불필요 — 계산 자체는 비로그인으로 가능하고, 결과를 계정에 저장하려면 별도로 `POST /diagnoses`를 호출해야 한다. 실제 시드 데이터로 수동 검산 및 자동 테스트(`tests/test_calculate.py`) 완료.
 
+**calc-v2 확장 (2026-09-12, PRD v8.3 — 결과 화면 리디자인, `docs/result-screen-v9-design.md` 참고)**: 천장/바닥/문 열손실, 에너지 효율 레벨(LV.1~5), AI 한 줄 평가, 누수 우선순위를 추가했다.
+- `space.door_area_m2`(선택, 기본값 2.0㎡) 신규 — 라이다로 스캔했으면 실측 문 면적, 아니면 기본값.
+- ⚠️ 천장/바닥/문 현재 U값(`current_ceiling/floor/door_u_value_policies`)은 벽체·창호와 달리 **원문 미대조 잠정 추정치**다(`seed_envelope_u_values.py` 주석 참고, policy_version에 `-unverified` 접미사). 에너지 효율 레벨 밴드 임계값도 잠정치(`efficiency-band-estimate-v1`) — 실제 데이터 분포 확인 후 조정 필요.
+- `total_heat_loss_kwh`가 이제 5개 부위(창호/벽체/천장/바닥/문) 합계라 `reduction_rate`의 분모가 커져서, calc-v1 대비 같은 입력이어도 절감률 수치 자체가 작게 나온다(더 정직한 비율 — v1은 창호+벽체만 분모라 부풀려져 있었음).
+
 **Request**
 ```json
 {
@@ -238,7 +243,8 @@
     "depth_m": 3.5,
     "height_m": 2.4,
     "floor_area_m2": 14.7,
-    "input_source": "manual"
+    "input_source": "manual",
+    "door_area_m2": 2.0
   },
   "window": {
     "total_area_m2": 3.6,
@@ -272,12 +278,18 @@
     "current_u_value_window": "u-window-v1",
     "current_u_value_wall": "u-wall-v1",
     "target_u_value": "target-u-v1",
-    "hdd": "hdd-seed-v1"
+    "hdd": "hdd-seed-v1",
+    "current_u_value_ceiling": "envelope-estimate-v1-unverified",
+    "current_u_value_floor": "envelope-estimate-v1-unverified",
+    "current_u_value_door": "envelope-estimate-v1-unverified"
   },
   "baseline": {
     "window_heat_loss_kwh": 812.4,
     "wall_heat_loss_kwh": 540.1,
-    "total_heat_loss_kwh": 1352.5
+    "ceiling_heat_loss_kwh": 320.6,
+    "floor_heat_loss_kwh": 437.2,
+    "door_heat_loss_kwh": 168.3,
+    "total_heat_loss_kwh": 2278.6
   },
   "scenarios": [
     {
@@ -309,12 +321,21 @@
     "status": "none_observed",
     "message": "사진상 뚜렷한 이상 흔적은 확인되지 않았습니다. 이 값은 열손실 수치에 영향을 주지 않습니다."
   },
-  "unit_scope_disclaimer": "이 결과는 대표 공간 1개 기준 비공식 추정치입니다. 천장, 바닥, 환기, 침기, 일사, 난방기기 효율, 사용 습관은 포함하지 않습니다.",
-  "bill_comparison": null
+  "unit_scope_disclaimer": "이 결과는 대표 공간 1개 기준 비공식 추정치입니다. 환기, 침기, 일사, 난방기기 효율, 사용 습관은 포함하지 않습니다.",
+  "bill_comparison": null,
+  "efficiency_level": {
+    "band_level": 3,
+    "label": "보통",
+    "kwh_per_m2": 155.0,
+    "disclaimer": "참고용 추정치이며 실제와 다를 수 있습니다."
+  },
+  "ai_summary": "보통 등급이며, 창호 개선을 하면 연간 최대 32% 절감이 예상돼요.",
+  "leak_priority": null
 }
 ```
 
-절감률(`reduction_rate`)의 분모는 항상 `baseline.total_heat_loss_kwh`. `priority`는 `annual_reduction_kwh` 내림차순.
+절감률(`reduction_rate`)의 분모는 항상 `baseline.total_heat_loss_kwh`(calc-v2부터 5개 부위 합계). `priority`는 `annual_reduction_kwh` 내림차순. `unit_scope_disclaimer`에서 calc-v2부터 "천장, 바닥"을 뺐다 — 이제 baseline에는 포함되지만(개선 시나리오/견적 대상은 아님, 창호·벽체만 최적화 시나리오가 있음) 여전히 냉방·침기 등은 범위 밖이라 문구는 유지한다.
+`leak_priority`는 `wall.visible_anomaly_confirmed == "suspected"`일 때만 `"높음"`, 그 외엔 `null` — 사진 AI 후보를 그대로 노출하는 값이라 계산에 안 쓰인다(원칙 5).
 
 **Error responses**
 
@@ -325,7 +346,7 @@
 | 400 | `INVALID_INPUT_SOURCE` | input_source가 manual/user_corrected 밖 (예: lidar) | 불가 |
 | 422 | `WALL_NET_AREA_INVALID` | 외기접촉벽체순면적 ≤ 0 | 불가, 입력 화면 복귀 |
 | 422 | `UNCONFIRMED_INPUT` | window_type이 확정 안 됨 등 필수 확정값 누락 | 불가 |
-| 422 | `REFERENCE_DATA_MISSING` | 조합에 대한 U값/HDD/목표U값 기준 데이터 없음 | 불가, `detail.missing`에 어떤 조회가 실패했는지 명시 |
+| 422 | `REFERENCE_DATA_MISSING` | 조합에 대한 U값/HDD/목표U값 기준 데이터 없음(calc-v2부터 `current_ceiling_u_value`/`current_floor_u_value`/`current_door_u_value`/`energy_efficiency_band`도 여기 포함) | 불가, `detail.missing`에 어떤 조회가 실패했는지 명시 |
 | 500 | `INTERNAL_ERROR` | 그 외 서버 오류 | 불가 |
 
 ### 2.5 POST `/api/v1/bills/compare` (Should, MVP 후순위)

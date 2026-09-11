@@ -54,10 +54,14 @@ class SpaceInput(BaseModel):
     height_m: float
     floor_area_m2: float
     input_source: InputSource
+    # calc-v2(docs/result-screen-v9-design.md 2절) — 라이다로 스캔했으면 실측
+    # 문 면적, 아니면 표준 실내문 1짝 기본값(2.0㎡). 기존 클라이언트가 아직
+    # 안 보내도 기본값으로 동작하도록 optional 취급.
+    door_area_m2: float = 2.0
 
     @model_validator(mode="after")
     def check_positive_dimensions(self) -> "SpaceInput":
-        for field_name in ("width_m", "depth_m", "height_m", "floor_area_m2"):
+        for field_name in ("width_m", "depth_m", "height_m", "floor_area_m2", "door_area_m2"):
             if getattr(self, field_name) <= 0:
                 raise ValueError(f"{field_name}는 0보다 커야 합니다.")
         return self

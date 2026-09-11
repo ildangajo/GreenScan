@@ -44,34 +44,53 @@ export default function MyPage() {
   }
 
   return (
-    <main className="mypage">
-      <header className="mypage__header">
-        <h1>마이페이지</h1>
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-neutral-50 px-6 pb-28 pt-10">
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold text-neutral-900">마이페이지</h1>
       </header>
 
-      <section className="profile-card" aria-labelledby="profile-heading">
-        <h2 id="profile-heading">{getDisplayName()}님</h2>
-        <p>GreenScan에서 우리 집의 변화를 확인해보세요.</p>
+      <section
+        className="mb-6 rounded-2xl bg-white px-5 py-6 shadow-sm"
+        aria-labelledby="profile-heading"
+      >
+        <h2 id="profile-heading" className="text-lg font-bold text-neutral-900">
+          {getDisplayName()}님
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500">GreenScan에서 이 집의 변화를 확인해보세요.</p>
       </section>
 
-      <section className="diagnosis-history" aria-labelledby="history-heading">
-        <h2 id="history-heading">최근 진단 기록</h2>
+      <section className="mb-6" aria-labelledby="history-heading">
+        <h2 id="history-heading" className="mb-3 text-base font-bold text-neutral-900">
+          최근 진단 기록
+        </h2>
 
-        {isLoading && <p>진단 기록을 불러오는 중...</p>}
-        {error && <p className="form-error" role="alert">{error}</p>}
-        {!isLoading && !error && diagnoses.length === 0 && <p>저장된 진단 기록이 없습니다.</p>}
+        {isLoading && <p className="text-sm text-neutral-500">진단 기록을 불러오는 중...</p>}
+        {error && (
+          <p className="text-sm font-medium text-red-500" role="alert">
+            {error}
+          </p>
+        )}
+        {!isLoading && !error && diagnoses.length === 0 && (
+          <p className="text-sm text-neutral-500">저장된 진단 기록이 없습니다.</p>
+        )}
 
         {!isLoading && diagnoses.length > 0 && (
-          <ul className="diagnosis-list">
+          <ul className="flex flex-col gap-3">
             {diagnoses.map((diagnosis) => (
-              <li className="diagnosis-card" key={diagnosis.diagnosis_id}>
+              <li
+                className="rounded-2xl bg-white shadow-sm"
+                key={diagnosis.diagnosis_id}
+              >
                 <button
                   type="button"
                   onClick={() => navigate(`/diagnoses/${diagnosis.diagnosis_id}`)}
+                  className="flex w-full flex-col gap-1 px-5 py-4 text-left"
                 >
-                  <strong>{diagnosis.building_type_key}</strong>
-                  <span>{diagnosis.region_id}</span>
-                  <time dateTime={diagnosis.created_at}>
+                  <strong className="text-sm font-semibold text-neutral-900">
+                    {diagnosis.building_type_key}
+                  </strong>
+                  <span className="text-sm text-neutral-500">{diagnosis.region_id}</span>
+                  <time dateTime={diagnosis.created_at} className="text-xs text-neutral-400">
                     {new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" }).format(
                       new Date(diagnosis.created_at),
                     )}
@@ -83,8 +102,13 @@ export default function MyPage() {
         )}
       </section>
 
-      <section className="account-actions" aria-label="계정 설정">
-        <button type="button" onClick={handleLogout} disabled={isLoggingOut}>
+      <section aria-label="계정 설정">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="w-full rounded-xl border border-neutral-200 bg-white py-3.5 text-sm font-semibold text-neutral-700 disabled:opacity-60"
+        >
           {isLoggingOut ? "로그아웃 중..." : "로그아웃"}
         </button>
       </section>

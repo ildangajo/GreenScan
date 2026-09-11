@@ -71,9 +71,11 @@ export default function AiConfirmPage() {
           <p className="mt-1 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">
             AI 후보: 이상 흔적 있음
           </p>
+          {/* 곰팡이/습도 문구는 docs/prd-v7-deviations.md #5의 확장 아이디어 예시 — 원인을
+              확정하지 않고 여전히 현장 점검 권장 안내로만 다룬다. */}
           <p className="mt-2 rounded-md bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
-            "벽면 하단에 얼룩으로 보이는 흔적이 있습니다." — 원인 진단이 아닌 현장 점검 권장 안내용
-            후보입니다.
+            "벽면 하단에 곰팡이로 추정되는 흔적이 있습니다. 습도가 높을 가능성이 있어요." — 원인
+            진단이 아닌 현장 점검 권장 안내용 후보입니다.
           </p>
 
           <ChipGroup

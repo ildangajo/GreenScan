@@ -23,7 +23,7 @@ export default function BuildingSpaceSelectPage() {
       step={1}
       title="건물 유형을 선택하세요"
       subtitle="대표 공간 1개를 기준으로 진단합니다"
-      hideBack
+      onBack={() => navigate("/")}
       onNext={() => navigate("/space-input")}
     >
       <div className="flex flex-col gap-6">

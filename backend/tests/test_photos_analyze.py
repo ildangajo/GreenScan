@@ -104,6 +104,44 @@ def test_vision_api_non_json_response_falls_back_to_failed(client, valid_jpeg_by
     assert response.json()["assessment_status"] == "failed"
 
 
+def test_wall_category_forces_window_type_not_applicable(client, valid_jpeg_bytes):
+    """모델이 프롬프트를 어기고 wall 사진에 window_type_candidate를 채워도 서버가 되돌린다."""
+    mock_response = json.dumps(
+        {
+            "assessment_status": "completed",
+            "photo_quality": "usable",
+            "component_type": "wall",
+            "window_type_candidate": "double",  # 모델이 잘못 채운 값
+            "visible_anomaly_candidate": "suspected",
+            "reason_summary": "벽면에 균열로 추정되는 흔적이 보입니다.",
+        }
+    )
+    with patch("app.services.vision_service._call_vision_api", return_value=mock_response):
+        response = _post_photo(client, valid_jpeg_bytes, category="wall")
+
+    assert response.status_code == 200
+    assert response.json()["window_type_candidate"] == "not_applicable"
+
+
+def test_window_category_forces_anomaly_not_applicable(client, valid_jpeg_bytes):
+    """모델이 프롬프트를 어기고 window 사진에 visible_anomaly_candidate를 채워도 서버가 되돌린다."""
+    mock_response = json.dumps(
+        {
+            "assessment_status": "completed",
+            "photo_quality": "usable",
+            "component_type": "window",
+            "window_type_candidate": "single",
+            "visible_anomaly_candidate": "suspected",  # 모델이 잘못 채운 값
+            "reason_summary": "단창으로 보입니다.",
+        }
+    )
+    with patch("app.services.vision_service._call_vision_api", return_value=mock_response):
+        response = _post_photo(client, valid_jpeg_bytes, category="window")
+
+    assert response.status_code == 200
+    assert response.json()["visible_anomaly_candidate"] == "not_applicable"
+
+
 def test_invalid_category_returns_400(client, valid_jpeg_bytes):
     response = _post_photo(client, valid_jpeg_bytes, category="roof")
 

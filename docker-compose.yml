@@ -26,15 +26,5 @@ services:
     volumes:
       - ./backend/app:/app/app
 
-  frontend:
-    build: ./frontend
-    env_file: ./frontend/.env
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend/src:/app/src
-
 volumes:
   db_data:

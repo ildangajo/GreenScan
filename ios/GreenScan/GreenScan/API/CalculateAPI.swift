@@ -62,10 +62,19 @@ enum CalculateAPI {
             let current_u_value_wall: String
             let target_u_value: String
             let hdd: String
+            // calc-v2(docs/result-screen-v9-design.md) — ⚠️ 이 세 값은 원문
+            // 미대조 잠정 추정치("-unverified" 접미사로 표시됨).
+            let current_u_value_ceiling: String
+            let current_u_value_floor: String
+            let current_u_value_door: String
         }
         struct Baseline: Codable {
             let window_heat_loss_kwh: Double
             let wall_heat_loss_kwh: Double
+            // calc-v2 신규 — total_heat_loss_kwh는 이제 이 5개 부위 합계다.
+            let ceiling_heat_loss_kwh: Double
+            let floor_heat_loss_kwh: Double
+            let door_heat_loss_kwh: Double
             let total_heat_loss_kwh: Double
         }
         struct Scenario: Codable, Identifiable {
@@ -82,6 +91,14 @@ enum CalculateAPI {
             let status: String
             let message: String
         }
+        /// calc-v2 — PRD v8.3: 반드시 disclaimer(참고용 추정치 고지)를 등급
+        /// 바로 옆에 같이 표시해야 한다.
+        struct EfficiencyLevel: Codable {
+            let band_level: Int
+            let label: String
+            let kwh_per_m2: Double
+            let disclaimer: String
+        }
 
         let calculation_version: String
         let reference_data_version: ReferenceDataVersion
@@ -89,6 +106,10 @@ enum CalculateAPI {
         let scenarios: [Scenario]
         let wall_anomaly_notice: WallAnomalyNotice
         let unit_scope_disclaimer: String
+        let efficiency_level: EfficiencyLevel
+        let ai_summary: String
+        /// wall.visible_anomaly_confirmed == "suspected"일 때만 "높음", 그 외엔 nil.
+        let leak_priority: String?
     }
 
     /// 실패 시 백엔드가 던지는 error_code: WALL_NET_AREA_INVALID(422),

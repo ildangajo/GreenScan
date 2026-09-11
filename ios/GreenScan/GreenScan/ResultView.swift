@@ -121,8 +121,10 @@ struct ResultView: View {
 
         case .ok(let data):
             VStack(alignment: .leading, spacing: 20) {
+                efficiencyLevelCard(data)
                 urgencyCard(data)
                 baselineCard(data)
+                aiSummaryCard(data)
                 priorityList(data)
 
                 Text(data.wall_anomaly_notice.message)
@@ -206,6 +208,64 @@ struct ResultView: View {
         }
     }
 
+    /// calc-v2(PRD v8.3) — 에너지 효율 레벨(LV.n). 서버가 내려주는 band_level(1~5,
+    /// 클수록 좋음)/label을 그대로 쓰고, disclaimer는 등급과 항상 같이 붙인다.
+    private static let efficiencyLevelColor: [Int: Color] = [
+        5: Color(hex: "2fcbaa"), 4: Color(hex: "2fcbaa"),
+        3: .orange, 2: .orange,
+        1: .red,
+    ]
+
+    private func efficiencyLevelCard(_ data: CalculateAPI.CalculateResponse) -> some View {
+        let level = data.efficiency_level
+        let color = Self.efficiencyLevelColor[level.band_level] ?? .gray
+        return VStack(spacing: 6) {
+            Text("에너지 효율 레벨")
+                .font(.system(size: 12))
+                .foregroundStyle(Color(hex: "535353").opacity(0.7))
+            HStack(spacing: 8) {
+                Text(level.label)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(color)
+                Text("LV.\(level.band_level)")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(color)
+                    .clipShape(Capsule())
+            }
+            Text("\(formatNumber(level.kwh_per_m2)) kWh/㎡·year 기준")
+                .font(.system(size: 11))
+                .foregroundStyle(Color(hex: "535353").opacity(0.6))
+            Text(level.disclaimer)
+                .font(.system(size: 10))
+                .foregroundStyle(Color(hex: "535353").opacity(0.4))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: "535353").opacity(0.15), lineWidth: 1))
+    }
+
+    /// calc-v2 — AI 한 줄 평가. 백엔드가 LLM 호출 없이 시나리오 결과를 템플릿에
+    /// 채워 만든다(docs/result-screen-v9-design.md 4절). 문구 자체를 FE에서
+    /// 재가공하지 않고 그대로 노출한다.
+    private func aiSummaryCard(_ data: CalculateAPI.CalculateResponse) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 14))
+                .foregroundStyle(Color(hex: "176b52"))
+            Text(data.ai_summary)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color(hex: "535353"))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(hex: "176b52").opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
     private func urgencyCard(_ data: CalculateAPI.CalculateResponse) -> some View {
         let uIdx = Self.overallUrgencyIndex(data.scenarios)
         return VStack(spacing: 6) {
@@ -228,9 +288,22 @@ struct ResultView: View {
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: "535353").opacity(0.15), lineWidth: 1))
     }
 
+    /// calc-v2 — 부위별 비율(창호/벽체/천장/바닥/문 5개 구간). 라이다 로직은
+    /// docs/result-screen-v9-design.md 2절: 문 면적만 실측이 더해지고 나머지는
+    /// 기존 로직/근사치를 그대로 쓴다.
+    private static let baselineSegments: [(name: String, key: KeyPath<CalculateAPI.CalculateResponse.Baseline, Double>, color: Color)] = [
+        ("창호", \.window_heat_loss_kwh, Color(hex: "535353")),
+        ("벽체", \.wall_heat_loss_kwh, Color(hex: "2fcbaa")),
+        ("천장", \.ceiling_heat_loss_kwh, Color(hex: "176b52")),
+        ("바닥", \.floor_heat_loss_kwh, .orange),
+        ("문", \.door_heat_loss_kwh, .purple),
+    ]
+
     private func baselineCard(_ data: CalculateAPI.CalculateResponse) -> some View {
         let total = data.baseline.total_heat_loss_kwh
-        let windowShare = total > 0 ? data.baseline.window_heat_loss_kwh / total : 0
+        let shares = Self.baselineSegments.map { seg in
+            (seg: seg, share: total > 0 ? data.baseline[keyPath: seg.key] / total : 0)
+        }
 
         return VStack(alignment: .leading, spacing: 8) {
             Text("예상 연간 에너지 사용량 (대표 공간 기준 추정)")
@@ -243,20 +316,29 @@ struct ResultView: View {
 
             GeometryReader { geo in
                 HStack(spacing: 0) {
-                    Color(hex: "535353").frame(width: geo.size.width * windowShare)
-                    Color(hex: "535353").opacity(0.25)
+                    ForEach(shares, id: \.seg.name) { entry in
+                        entry.seg.color.frame(width: geo.size.width * entry.share)
+                    }
                 }
             }
             .frame(height: 10)
             .clipShape(Capsule())
 
-            HStack {
-                Text("창호 \(formatNumber(data.baseline.window_heat_loss_kwh)) kWh")
-                Spacer()
-                Text("벽체 \(formatNumber(data.baseline.wall_heat_loss_kwh)) kWh")
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(shares, id: \.seg.name) { entry in
+                    HStack(spacing: 6) {
+                        Circle().fill(entry.seg.color).frame(width: 6, height: 6)
+                        Text(entry.seg.name)
+                        Spacer()
+                        Text("\(formatNumber(data.baseline[keyPath: entry.seg.key])) kWh")
+                        Text("(\(formatPercent(entry.share))%)")
+                            .foregroundStyle(Color(hex: "535353").opacity(0.5))
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(hex: "535353").opacity(0.7))
+                }
             }
-            .font(.system(size: 10))
-            .foregroundStyle(Color(hex: "535353").opacity(0.6))
+            .padding(.top, 2)
         }
         .padding(16)
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: "535353").opacity(0.15), lineWidth: 1))
@@ -312,8 +394,43 @@ struct ResultView: View {
                     .padding(12)
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(hex: "535353").opacity(0.15), lineWidth: 1))
                 }
+
+                if data.leak_priority == "높음" {
+                    leakPriorityRow
+                }
             }
         }
+    }
+
+    /// calc-v2 — 벽체 anomaly_status == "suspected"일 때만 노출되는 별도 카드.
+    /// 계산된 감소량/우선순위 숫자가 없는 항목이라 scenarios와 다른 모양으로
+    /// (사진 AI 후보를 그대로 노출) 보여준다 — 임의로 감소량을 계산하지 않는다.
+    private var leakPriorityRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "drop.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white)
+                    .frame(width: 20, height: 20)
+                    .background(Color.red)
+                    .clipShape(Circle())
+                Text("누수 의심 부위 점검")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "535353"))
+                Spacer()
+                Text("높음")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(Color.red.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            Text("벽체 사진에서 누수 의심 흔적이 감지됐어요. 정확한 원인은 전문가 확인이 필요해요.")
+                .font(.system(size: 10))
+                .foregroundStyle(Color(hex: "535353").opacity(0.6))
+        }
+        .padding(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.red.opacity(0.3), lineWidth: 1))
     }
 
     private var endButton: some View {

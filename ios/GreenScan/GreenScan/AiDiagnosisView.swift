@@ -1,12 +1,14 @@
 import SwiftUI
 
 /// frontend/src/features/ai-diagnosis/AiDiagnosisStartPage.tsx의 포팅.
-/// Figma node 18:141 실측값(색상/치수) 그대로 옮겼다. 아직 API 클라이언트가
-/// 없어서 "확인"/"분석 시작하기"는 실제 네트워크 호출 없이 로컬 상태만
-/// 바꾸는 데모 동작이다 — 진단 플로우(공간치수~결과)는 보류 지시로 아직
+/// Figma node 18:141 실측값(색상/치수) 그대로 옮겼다. 주소 확인은
+/// GET /api/v1/map/geocode 실연동(2026-09-12) — 이 엔드포인트는 로그인이
+/// 필요해서(api-spec.md 1.1) 세션 토큰이 없으면(비로그인 또는 오프라인 데모
+/// 계정) 호출하지 않고 안내만 보여준다. 진단 플로우(공간치수~결과)는 아직
 /// 연결 안 함.
 struct AiDiagnosisView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AuthState.self) private var auth
 
     @State private var photoCount = 0
     @State private var address = ""
@@ -199,18 +201,28 @@ struct AiDiagnosisView: View {
     }
 
     private func checkAddress() {
+        guard let token = auth.sessionToken else {
+            addressStatus = .error(
+                auth.isLoggedIn
+                    ? "오프라인 데모 계정은 주소 확인을 이용할 수 없어요. 실제 계정으로 로그인해주세요."
+                    : "로그인 후 이용할 수 있어요."
+            )
+            return
+        }
+
         addressStatus = .checking
-        // TODO: 실제 /api/v1/map/geocode 연동 전까지 데모용 규칙(PRD: 서울만 지원)만 흉내낸다.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            if address.contains("서울") {
-                addressStatus = .ok(region: "seoul")
-            } else {
-                addressStatus = .error("지원하지 않는 지역입니다.")
+        Task {
+            do {
+                let result = try await MapAPI.geocode(address: address.trimmingCharacters(in: .whitespaces), token: token)
+                addressStatus = .ok(region: result.region_id)
+            } catch {
+                let message = (error as? ApiError)?.message ?? "주소 확인에 실패했습니다."
+                addressStatus = .error(message)
             }
         }
     }
 }
 
 #Preview {
-    AiDiagnosisView()
+    AiDiagnosisView().environment(AuthState())
 }

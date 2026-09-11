@@ -35,7 +35,13 @@ enum APIClient {
         body: Encodable? = nil,
         token: String? = nil
     ) async throws -> T {
-        var urlRequest = URLRequest(url: APIConfig.baseURL.appendingPathComponent(path))
+        // appendingPathComponent는 "?"/"&"까지 문자 그대로 퍼센트 인코딩해버려서
+        // 쿼리스트링이 있는 경로(geocode 등)에는 못 쓴다 — URL(string:relativeTo:)로
+        // 상대 참조를 그대로 해석해야 쿼리가 살아남는다.
+        guard let url = URL(string: path, relativeTo: APIConfig.baseURL) else {
+            throw ApiError(message: "잘못된 요청 경로입니다.", status: 0, code: nil)
+        }
+        var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         if let token {
             urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

@@ -479,7 +479,8 @@ struct ResultView: View {
                 // BE가 InputSource enum에 "lidar"를 실제로 열어줘서(feat/be-lidar-input,
                 // 2026-09-12) 이제 그대로 보내면 된다 — 예전엔 여기서 "user_corrected"로
                 // 매핑하는 임시 다리가 있었는데 지웠다.
-                input_source: flow.spaceInputSource
+                input_source: flow.spaceInputSource,
+                door_area_m2: Double(flow.doorArea)
             ),
             window: .init(
                 total_area_m2: Double(flow.windowArea) ?? 0,

@@ -147,6 +147,7 @@ struct RoomScanView: View {
         flow.floorArea = measurement.formattedFloorArea
         flow.windowArea = measurement.formattedWindowArea
         flow.wallArea = measurement.formattedSelectedWallArea
+        flow.doorArea = measurement.formattedDoorArea ?? ""
         // 팀원 리뷰(2026-09-12) 반영: 치수 출처를 "lidar"로 기록해둔다 —
         // SpaceInputView에서 이 값을 사용자가 다시 고치면 "user_corrected"로
         // 내려간다. BE가 InputSource enum에 lidar를 실제로 받아줘서
@@ -215,12 +216,21 @@ final class RoomMeasurement {
         let wallId: UUID?
     }
 
+    /// docs/result-screen-v9-design.md 2절 "라이다 로직": 문은 RoomPlan이
+    /// 실제로 실측해주는 유일한 신규 값 — CapturedRoom.doors를 그대로 쓴다.
+    struct DoorItem: Identifiable {
+        let id: UUID
+        let areaM2: Double
+        let wallId: UUID?
+    }
+
     let widthM: Double
     let depthM: Double
     let heightM: Double
     let floorAreaM2: Double
     var walls: [WallItem]
     var windows: [WindowItem]
+    var doors: [DoorItem]
 
     init(room: CapturedRoom) {
         if let floor = room.floors.first {
@@ -251,6 +261,13 @@ final class RoomMeasurement {
                 wallId: window.parentIdentifier
             )
         }
+        doors = room.doors.map { door in
+            DoorItem(
+                id: door.identifier,
+                areaM2: Double(door.dimensions.x * door.dimensions.y),
+                wallId: door.parentIdentifier
+            )
+        }
     }
 
     var selectedWallAreaM2: Double {
@@ -266,12 +283,24 @@ final class RoomMeasurement {
             .reduce(0) { $0 + $1.areaM2 }
     }
 
+    /// 선택한 외벽에 속한 문만 합산 — 창문과 동일한 규칙(입력만 실측, 순면적
+    /// 차감은 서버가 담당).
+    var selectedDoorAreaM2: Double {
+        let exteriorWallIds = Set(walls.filter(\.isExterior).map(\.id))
+        return doors
+            .filter { $0.wallId.map(exteriorWallIds.contains) ?? false }
+            .reduce(0) { $0 + $1.areaM2 }
+    }
+
     var formattedWidth: String { Self.format(widthM) }
     var formattedDepth: String { Self.format(depthM) }
     var formattedHeight: String { Self.format(heightM) }
     var formattedFloorArea: String { Self.format(floorAreaM2) }
     var formattedWindowArea: String { Self.format(selectedWindowAreaM2) }
     var formattedSelectedWallArea: String { Self.format(selectedWallAreaM2) }
+    /// 감지된 문이 하나도 없으면 nil — 백엔드 기본값(2.0㎡)이 대신 적용되게
+    /// 빈 문자열로 둔다(door_area_m2를 억지로 0으로 채우지 않는다).
+    var formattedDoorArea: String? { doors.isEmpty ? nil : Self.format(selectedDoorAreaM2) }
 
     private static func format(_ value: Double) -> String {
         String(format: "%.2f", value)
@@ -355,6 +384,13 @@ private struct ReviewView: View {
             Text("계산에 쓰일 값").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(hex: "535353"))
             metricRow("외기 접촉 벽체 합산면적(창문 포함)", "\(measurement.formattedSelectedWallArea) m²")
             metricRow("선택한 벽에 속한 창호 합산면적", "\(measurement.formattedWindowArea) m²")
+            if let doorArea = measurement.formattedDoorArea {
+                metricRow("선택한 벽에 속한 문 합산면적", "\(doorArea) m²")
+            } else {
+                Text("감지된 문이 없어서 문 면적은 기본값으로 계산돼요.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
             metricRow("바닥면적(참고용)", "\(measurement.formattedFloorArea) m²")
         }
     }

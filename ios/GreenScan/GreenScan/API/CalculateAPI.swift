@@ -16,6 +16,11 @@ enum CalculateAPI {
             let height_m: Double
             let floor_area_m2: Double
             let input_source: String
+            /// 문실측(door_area_m2) — 옵셔널. nil이면 키 자체를 안 보내고
+            /// backend/app/schemas/diagnosis.py SpaceInput의 기본값(2.0㎡)이
+            /// 적용된다(synthesized Encodable이 nil optional 프로퍼티는
+            /// encodeIfPresent로 처리해 키를 생략한다).
+            let door_area_m2: Double?
         }
         struct Window: Encodable {
             let total_area_m2: Double

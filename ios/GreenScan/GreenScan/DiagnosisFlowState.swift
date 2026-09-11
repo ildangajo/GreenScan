@@ -29,6 +29,12 @@ final class DiagnosisFlowState {
     var windowArea = ""
     var wallArea = ""
     var insulationStatus = ""
+    /// 문 합산면적(m²) — 선택 입력. 빈 문자열이면 CalculateRequest.Space에
+    /// door_area_m2 자체를 안 실어 보내고(옵셔널) 백엔드 기본값(2.0㎡)이
+    /// 적용된다(backend/app/schemas/diagnosis.py SpaceInput). 라이다 스캔이
+    /// 문을 감지하면 자동으로 채워진다(RoomScanView) — spaceInputSource와
+    /// 같은 출처 추적을 공유한다(문도 SpaceInput 블록 소속).
+    var doorArea = ""
 
     /// 가로/세로/높이/바닥면적의 출처 — "manual"(직접 입력) | "lidar"(스캔
     /// 그대로) | "user_corrected"(스캔값을 사용자가 다시 고침). 계산 API의
@@ -70,6 +76,7 @@ final class DiagnosisFlowState {
         windowArea = ""
         wallArea = ""
         insulationStatus = ""
+        doorArea = ""
         spaceInputSource = "manual"
         windowTypeConfirmed = "double"
         lowE = "unknown"

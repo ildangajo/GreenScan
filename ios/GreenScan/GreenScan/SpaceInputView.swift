@@ -45,6 +45,14 @@ struct SpaceInputView: View {
                         numericField("창호 합산면적 (m²)", text: bindingFor(\.windowArea), placeholder: "예: 3.6")
                     }
 
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("문 (선택)").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(hex: "535353"))
+                        numericField("외기 접촉 문 합산면적 (m²)", text: dimensionBindingFor(\.doorArea), placeholder: "비워두면 기본값(2.0㎡)이 적용돼요")
+                        Text("라이다로 측정하면 감지된 문 면적이 자동으로 채워져요. 비워두면 기본값으로 계산돼요.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color(hex: "535353").opacity(0.6))
+                    }
+
                     VStack(alignment: .leading, spacing: 12) {
                         Text("벽체").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(hex: "535353"))
                         numericField("외기 접촉 벽체 합산면적 (m²)", text: bindingFor(\.wallArea), placeholder: "예: 12.0")

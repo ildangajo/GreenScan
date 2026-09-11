@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analysis, auth, diagnoses, favorites, reference
+from app.api.routes import analysis, auth, diagnoses, favorites, map as map_routes, reference
 from app.core.config import settings
 
 from app.api.routes.health import router as health_router
@@ -20,6 +20,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(reference.router, prefix="/api/v1")
 app.include_router(diagnoses.router, prefix="/api/v1")
 app.include_router(favorites.router, prefix="/api/v1")
+app.include_router(map_routes.router, prefix="/api/v1")
 
 
 app.include_router(health_router)

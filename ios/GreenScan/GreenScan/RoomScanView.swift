@@ -13,10 +13,9 @@ import SwiftUI
 /// 실기기(라이다 탑재 iPhone Pro/iPad Pro) 전용 — 시뮬레이터와 라이다 없는
 /// 기기에서는 RoomCaptureSession.isSupported가 false라 안내 문구만 보여준다.
 ///
-/// 백엔드 연동 주의: InputSource enum에 "lidar"가 아직 없어(예약값만,
-/// api-spec.md 2.4) 계산 API에 그대로 보낼 수는 없다 — 지금은 DiagnosisFlowState의
-/// 치수 필드만 채우고, 실제 제출 시 input_source는 BE가 lidar를 받아주기
-/// 전까지 "user_corrected"로 보내야 한다(제출 화면에서 처리할 몫).
+/// 백엔드는 InputSource enum에 "lidar"를 실제로 받아준다(feat/be-lidar-input,
+/// 2026-09-12) — DiagnosisFlowState.spaceInputSource에 "lidar"로 기록해두면
+/// ResultView가 계산/저장 요청에 그대로 실어 보낸다.
 struct RoomScanView: View {
     @Environment(DiagnosisFlowState.self) private var flow
     @Environment(\.dismiss) private var dismiss
@@ -150,9 +149,8 @@ struct RoomScanView: View {
         flow.wallArea = measurement.formattedSelectedWallArea
         // 팀원 리뷰(2026-09-12) 반영: 치수 출처를 "lidar"로 기록해둔다 —
         // SpaceInputView에서 이 값을 사용자가 다시 고치면 "user_corrected"로
-        // 내려간다. 계산 API에 보낼 땐 ResultView가 아직 BE가 안 받아주는
-        // "lidar"를 "user_corrected"로 매핑해서 보낸다(InputSource enum이
-        // lidar를 실제로 받기 전까지의 임시 다리 — docs/lidar-space-capture-proposal.md).
+        // 내려간다. BE가 InputSource enum에 lidar를 실제로 받아줘서
+        // ResultView는 이 값을 그대로 계산/저장 요청에 실어 보낸다.
         flow.spaceInputSource = "lidar"
     }
 }

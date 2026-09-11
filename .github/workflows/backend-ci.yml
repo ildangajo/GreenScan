@@ -20,6 +20,8 @@ jobs:
   test:
     name: Test backend
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite://
     defaults:
       run:
         working-directory: backend
@@ -39,7 +41,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install pytest
+          python -m pip install pytest httpx
 
       - name: Check application imports
         run: |
@@ -47,7 +49,7 @@ jobs:
           from app.main import app
 
           paths = {route.path for route in app.routes}
-          assert {"/health", "/health/db"}.issubset(paths)
+          assert {"/health", "/health/ready"}.issubset(paths)
           PY
 
       - name: Run tests when present

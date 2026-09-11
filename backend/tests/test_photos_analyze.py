@@ -142,6 +142,45 @@ def test_window_category_forces_anomaly_not_applicable(client, valid_jpeg_bytes)
     assert response.json()["visible_anomaly_candidate"] == "not_applicable"
 
 
+def test_oversized_photo_returns_400(client):
+    """api-spec.md 0.1: 사진 1장 최대 10MB 확정 — 초과분은 즉시 거부한다."""
+    from app.api.routes.analysis import _MAX_FILE_SIZE_BYTES
+
+    oversized_bytes = b"\xff" * (_MAX_FILE_SIZE_BYTES + 1)
+
+    response = _post_photo(client, oversized_bytes)
+
+    assert response.status_code == 400
+    body = response.json()["detail"]
+    assert body["error_code"] == "PHOTO_TOO_LARGE"
+    assert body["detail"]["max_size_bytes"] == _MAX_FILE_SIZE_BYTES
+
+
+def test_photo_at_size_limit_passes_size_check(client, valid_jpeg_bytes):
+    """정확히 상한 크기까지는 PHOTO_TOO_LARGE로 막히면 안 되고 분석까지 진행된다."""
+    from app.api.routes.analysis import _MAX_FILE_SIZE_BYTES
+
+    padding = b"\x00" * (_MAX_FILE_SIZE_BYTES - len(valid_jpeg_bytes))
+    at_limit_bytes = valid_jpeg_bytes + padding
+    assert len(at_limit_bytes) == _MAX_FILE_SIZE_BYTES
+
+    mock_response = json.dumps(
+        {
+            "assessment_status": "unassessable",
+            "photo_quality": "unknown",
+            "component_type": "window",
+            "window_type_candidate": "unknown",
+            "visible_anomaly_candidate": "not_applicable",
+            "reason_summary": "이미지 뒷부분이 손상되어 판단이 어렵습니다.",
+        }
+    )
+    with patch("app.services.vision_service._call_vision_api", return_value=mock_response):
+        response = _post_photo(client, at_limit_bytes)
+
+    # 용량 상한 자체에는 걸리지 않고 정상적으로 분석 단계까지 도달해야 한다.
+    assert response.status_code == 200
+
+
 def test_invalid_category_returns_400(client, valid_jpeg_bytes):
     response = _post_photo(client, valid_jpeg_bytes, category="roof")
 

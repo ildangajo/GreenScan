@@ -1,10 +1,12 @@
 # GreenScan DB 설계 에이전트 지시문 v1
 
+> **⚠️ v8.1 갱신 (2026-09-11, PM 확인 반영)**: PRD가 v8.1로 바뀌면서 "이 DB는 진단을 저장하지 않는다"는 이 문서의 핵심 전제가 **부분적으로 폐기**됐다. 로그인/계정 도입에 따라 사용자 계정과 진단 이력, 즐겨찾기는 이제 저장 대상이다(아래 9장 참고). 단, **사진 원본·AI 원본 응답·등급/레벨/견적 데이터는 여전히 저장하지 않는다** — 이 원칙은 유지된다. 이 문서의 0~8장(기준 데이터 스키마)은 변경 없이 그대로 유효하다.
+
 ## 0. 문서 목적과 최우선 규칙
 
-이 문서는 `GreenScan PRD Agent Directive v7`을 기준으로 PostgreSQL의 **MVP 기준 데이터 DB**를 설계·구현·검토할 에이전트의 지시문이다.
+이 문서는 `GreenScan PRD Agent Directive v7`을 기준으로 PostgreSQL의 **MVP 기준 데이터 DB**를 설계·구현·검토할 에이전트의 지시문이다. (v8.1부터는 9장의 계정/이력 스키마도 이 DB에 포함된다.)
 
-이 문서에서 말하는 DB는 사용자의 진단을 저장하는 DB가 아니다. 계산에 필요한 정적 기준 데이터와 정책만 제공한다.
+이 문서에서 말하는 DB는 원래 사용자의 진단을 저장하는 DB가 아니었으나, v8.1부터는 로그인한 사용자의 진단 이력·즐겨찾기도 함께 저장한다. 0~8장은 여전히 계산에 필요한 정적 기준 데이터와 정책을 다루고, 9장이 계정/이력 영역을 별도로 다룬다.
 
 에이전트는 다음 규칙을 반드시 지킨다.
 
@@ -35,16 +37,16 @@
 
 아래는 PRD에서 서버 또는 PostgreSQL 영구 저장 금지·제외 범위로 정했으므로 MVP DB에 넣지 않는다.
 
-- `users`, `accounts`, `profiles`, 로그인·권한·세션 테이블
-- `diagnoses`, `diagnosis_results`, `calculation_results`, 진단 이력 테이블
-- `photos`, `image_metadata`, 업로드 파일·S3 키·사진 URL 테이블
-- `ai_analysis`, `vision_responses`, AI 후보·confidence·프롬프트 이력 테이블
-- `guest_sessions`, TTL·자동 삭제 작업용 테이블
-- 고지서 원본·12개월 사용량·보정 이력 테이블
-- LiDAR 스캔, RoomPlan, 포토그래메트리, 객체 추적 관련 테이블
-- 견적·시공업체·비용·공식 인증·에너지 등급 테이블
+- ~~`users`, `accounts`, `profiles`, 로그인·권한·세션 테이블~~ → **(v8.1) 저장 대상으로 전환. 9장 참고.**
+- ~~`diagnoses`, `diagnosis_results`, `calculation_results`, 진단 이력 테이블~~ → **(v8.1) 저장 대상으로 전환. 9장 참고.**
+- `photos`, `image_metadata`, 업로드 파일·S3 키·사진 URL 테이블 — **(변경 없음, 계속 금지)**
+- `ai_analysis`, `vision_responses`, AI 후보·confidence·프롬프트 이력 테이블 — **(변경 없음, 계속 금지)**
+- `guest_sessions`, TTL·자동 삭제 작업용 테이블 — 로그인 세션 테이블은 9장에서 별도로 다룸(guest 세션과는 다른 개념)
+- 고지서 원본·12개월 사용량·보정 이력 테이블 — **(변경 없음, 계속 금지)**
+- LiDAR 스캔, RoomPlan, 포토그래메트리, 객체 추적 관련 테이블 — **(변경 없음, 계속 금지)**
+- 견적·시공업체·비용·공식 인증·에너지 등급 테이블 — **(변경 없음, 계속 금지 — v8.1에서도 등급/레벨/견적은 제외)**
 
-사진·AI 후보·확정 입력·계산 결과는 React의 임시 상태와 요청/응답 DTO 안에서만 다룬다. DB에는 남기지 않는다.
+사진·AI 후보는 여전히 React의 임시 상태와 요청/응답 DTO 안에서만 다룬다. DB에는 남기지 않는다. **확정 입력·계산 결과는 v8.1부터 로그인 계정에 한해 9장 스키마로 저장한다.**
 
 ---
 
@@ -628,3 +630,74 @@ Ref: calculation_result_message_policies.calculation_policy_id > calculation_pol
 | `reference_data_missing` 응답의 상세 형식과 HTTP 상태 코드 | PRD는 오류 원칙만 정의 | API 명세, 계산 엔진 |
 
 이 목록의 값이 확정되기 전에도 마이그레이션과 Mock 구조는 만들 수 있다. 단, 실제 U값·HDD가 필요한 계산 완료 시연은 해당 기준 데이터 시드가 검증되기 전에는 완료로 처리하면 안 된다.
+
+---
+
+## 9. (v8.1 신규) 계정·진단 이력·즐겨찾기
+
+PRD v8.1(2026-09-11 PM 확인)에서 로그인/계정을 도입하면서 이 DB의 책임이 넓어졌다. 0~8장의 기준 데이터 원칙(임의 수치 금지, reference_data_missing 등)은 이 장에는 적용되지 않는다 — 여기는 순수 저장 스키마다. 단, **사진 원본·AI 원본 응답·등급/레벨/견적은 이 장에서도 저장하지 않는다.**
+
+### 9.1 범위
+
+| 도메인 | DB 책임 |
+|---|---|
+| 사용자 계정 | 로그인 ID, 비밀번호 해시 등 — **JWT 미사용.** 계정은 운영자가 미리 시드하며 자체 가입 플로우 없음 |
+| 로그인 세션 | 비-JWT opaque 세션 토큰과 만료 시각 |
+| 진단 이력 | 계정에 귀속된 확정 입력값 + 계산 결과 스냅샷 (원본 사진 제외) |
+| 즐겨찾기 | 계정이 저장한 즐겨찾기 항목 (단순 토글, 그 이상 없음 — PRD 2.2절) |
+
+### 9.2 테이블 초안
+
+정확한 컬럼 제약(인덱스, 세션 TTL 등)은 BE-A가 구현 시 확정한다. 아래는 최소 골격이다.
+
+```
+Table users {
+  user_id uuid [pk]
+  login_id varchar [not null, unique]   // 자체 가입 없음 — 운영자가 시드
+  password_hash varchar [not null]
+  display_name varchar
+  created_at timestamp [not null]
+}
+
+Table sessions {
+  session_token varchar [pk]            // 비-JWT opaque 토큰
+  user_id uuid [not null]
+  expires_at timestamp [not null]
+}
+
+Table diagnoses {
+  diagnosis_id uuid [pk]
+  user_id uuid [not null]
+  building_type_key varchar [not null]
+  region_id varchar [not null]
+  confirmed_input jsonb [not null]      // 사용자 확정 공간/창호/벽체 입력
+  calculation_result jsonb [not null]   // 기준선·시나리오·우선순위 스냅샷
+  calculation_version varchar [not null]
+  reference_data_version varchar [not null]
+  created_at timestamp [not null]
+}
+
+Table favorites {
+  favorite_id uuid [pk]
+  user_id uuid [not null]
+  diagnosis_id uuid                     // 즐겨찾기 대상 모델 미확정 — 9.3 참고
+  created_at timestamp [not null]
+}
+
+Ref: sessions.user_id > users.user_id
+Ref: diagnoses.user_id > users.user_id
+Ref: favorites.user_id > users.user_id
+Ref: favorites.diagnosis_id > diagnoses.diagnosis_id
+```
+
+`diagnoses.confirmed_input`/`calculation_result`를 JSONB로 둔 것은 이 장이 기준 데이터 정규화 원칙(0~8장)을 따르지 않는 별도 저장 영역이기 때문이다 — 이력은 "그 시점에 보여준 결과의 스냅샷"이면 충분하고, 이후 기준 데이터가 바뀌어도 과거 이력이 달라지면 안 되므로 오히려 정규화하지 않고 스냅샷으로 굳히는 편이 맞다.
+
+### 9.3 정책 확정 필요 (BE-A)
+
+| 항목 | 비고 |
+|---|---|
+| 비밀번호 해시 알고리즘 | bcrypt/argon2 등 확정 필요 |
+| 세션 토큰 만료 정책 (TTL) | 미확정 |
+| `diagnoses` 저장 시점 | 계산 즉시 자동 저장 vs 사용자가 명시적으로 "저장" 눌러야 하는지 |
+| `favorites`가 가리키는 대상 | 진단 결과 1건 단위인지, 주소/지역 단위인지 — 위 초안은 진단 결과 단위로 가정 |
+| 계정 시드 방법 | 마이그레이션에 하드코딩할지, 별도 운영 스크립트로 둘지 |

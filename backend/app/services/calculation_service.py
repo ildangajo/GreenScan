@@ -230,8 +230,10 @@ def calculate(request: CalculateRequest, db: DbSession) -> CalculateResponse:
     # calc-v2: AI 한 줄 평가 — LLM 자유생성 없이 등급 + 1순위 시나리오를 템플릿에 조립.
     top_scenario = scenarios[0] if scenarios else None
     if top_scenario:
+        # "{name}을(를)" 식 조사 괄호 표기가 실제 응답에 그대로 노출되는 버그가 있었다
+        # (2026-09-12, 실서버 응답에서 발견) — 받침 유무와 무관한 "시"로 바꿔서 회피.
         ai_summary = (
-            f"{efficiency_level.label} 등급이며, {top_scenario.name}을(를) 하면 "
+            f"{efficiency_level.label} 등급이며, {top_scenario.name} 시 "
             f"연간 최대 {round(top_scenario.reduction_rate * 100)}% 절감이 예상돼요."
         )
     else:

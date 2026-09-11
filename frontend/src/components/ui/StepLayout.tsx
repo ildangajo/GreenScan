@@ -1,10 +1,16 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 interface StepLayoutProps {
-  /** 1~5. GreenScan MVP 흐름 기준 (건물/공간 선택 → 치수입력 → 사진업로드 → AI확인 → 결과) */
+  /**
+   * 1~4. GreenScan MVP 흐름 기준 (건물/공간 선택 → 치수입력 →
+   * 사진업로드+AI확인 → 결과). 원래 "사진업로드"와 "AI확인"이 분리된
+   * 5단계였는데, 사진을 올리면 /api/v1/photos/analyze가 즉시 후보를
+   * 돌려주는 구조라 화면을 나눌 이유가 없어서 한 단계로 합쳤다
+   * (features/vision-analysis/PhotoUploadPage.tsx).
+   */
   step: number;
   title: string;
   subtitle?: string;

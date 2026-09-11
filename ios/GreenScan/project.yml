@@ -1,0 +1,52 @@
+name: GreenScan
+options:
+  bundleIdPrefix: com.greenscan
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  GreenScan:
+    type: application
+    platform: iOS
+    sources: [GreenScan]
+    info:
+      path: GreenScan/Info.plist
+      properties:
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: launch-logo
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # 백엔드가 아직 https가 아니라 http://3.38.160.29:8000 그대로 붙는다 —
+        # ATS 기본값이 이걸 막아서 임시로 전체 허용해뒀다. 백엔드에 TLS
+        # 붙이면 이 예외는 지우고 NSExceptionDomains로 좁혀야 한다.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greenscan.app
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+  GreenScanUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [GreenScanUITests]
+    dependencies:
+      - target: GreenScan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greenscan.uitests
+        SWIFT_VERSION: "5.0"
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        TEST_TARGET_NAME: GreenScan
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  GreenScan:
+    build:
+      targets:
+        GreenScan: all
+        GreenScanUITests: [test]
+    test:
+      targets: [GreenScanUITests]

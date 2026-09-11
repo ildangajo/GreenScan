@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import layersIcon from "./assets/layers.svg";
 import chevronLeftIcon from "./assets/chevron-left.svg";
 import chevronDownIcon from "./assets/chevron-down.svg";
-import { ApiError } from "../../api/client";
+import { ApiError } from "../../api/http";
 import { geocodeAddress } from "../../api/map";
 import { getReferenceOptions } from "../../api/reference";
-import type { ConstructionYearRangeOption } from "../../api/types";
+import type { ConstructionYearRangeOption } from "../../api/reference";
 
 /**
  * "AI 분석하기" 시작 화면 — 홈 히어로 배너의 "AI 진단 시작하기"를 누르면 들어오는
@@ -96,10 +96,7 @@ export default function AiDiagnosisStartPage() {
       const res = await geocodeAddress(address.trim());
       setAddressCheck({ status: "ok", regionId: res.region_id });
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? ((err.body as { detail?: { message?: string } } | null)?.detail?.message ?? err.message)
-          : "주소 확인에 실패했습니다.";
+      const message = err instanceof ApiError ? err.message : "주소 확인에 실패했습니다.";
       setAddressCheck({ status: "error", message });
     }
   };

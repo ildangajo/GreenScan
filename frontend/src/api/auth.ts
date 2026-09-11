@@ -1,21 +1,51 @@
-import { apiFetch, setSessionToken } from "./client";
-import type { LoginRequest, LoginResponse } from "./types";
+import { apiRequest } from "./http";
 
-/** DB에 시드된 계정으로만 로그인 가능 — 자체 회원가입 플로우는 없음(PRD v8.1). */
+const SESSION_TOKEN_KEY = "greenscan_session_token";
+const DISPLAY_NAME_KEY = "greenscan_display_name";
+
+export interface LoginRequest {
+  login_id: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  session_token: string;
+  expires_at: string;
+  display_name: string | null;
+}
+
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
-  const res = await apiFetch<LoginResponse>("/api/v1/auth/login", {
+  const result = await apiRequest<LoginResponse>("/api/v1/auth/login", {
     method: "POST",
-    body: payload,
-    auth: false,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
-  setSessionToken(res.session_token);
-  return res;
+
+  sessionStorage.setItem(SESSION_TOKEN_KEY, result.session_token);
+  sessionStorage.setItem(DISPLAY_NAME_KEY, result.display_name ?? "");
+  return result;
 }
 
 export async function logout(): Promise<void> {
-  try {
-    await apiFetch<void>("/api/v1/auth/logout", { method: "POST" });
-  } finally {
-    setSessionToken(null);
+  const token = getSessionToken();
+  if (token) {
+    await apiRequest<void>("/api/v1/auth/logout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
   }
+  clearSession();
+}
+
+export function getSessionToken(): string | null {
+  return sessionStorage.getItem(SESSION_TOKEN_KEY);
+}
+
+export function getDisplayName(): string {
+  return sessionStorage.getItem(DISPLAY_NAME_KEY) || "사용자";
+}
+
+export function clearSession(): void {
+  sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  sessionStorage.removeItem(DISPLAY_NAME_KEY);
 }

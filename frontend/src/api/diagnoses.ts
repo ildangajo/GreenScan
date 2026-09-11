@@ -1,14 +1,51 @@
-import { apiFetch } from "./client";
-import type { DiagnosisCreateRequest, DiagnosisDetail, DiagnosisListResponse, DiagnosisSummary } from "./types";
+import { getSessionToken } from "./auth";
+import { ApiError, apiRequest } from "./http";
 
-/** 홈 "최근 분석한 건물" 목록이 최종적으로 이걸 쓰게 된다 */
+export interface DiagnosisSummary {
+  diagnosis_id: string;
+  building_type_key: string;
+  region_id: string;
+  created_at: string;
+}
+
+export interface DiagnosisDetail extends DiagnosisSummary {
+  confirmed_input: Record<string, unknown>;
+  calculation_result: Record<string, unknown>;
+  calculation_version: string;
+  reference_data_version: string;
+}
+
+export interface DiagnosisListResponse {
+  diagnoses: DiagnosisSummary[];
+}
+
+export interface DiagnosisCreateRequest {
+  building_type_key: string;
+  region_id: string;
+  confirmed_input: Record<string, unknown>;
+  calculation_result: Record<string, unknown>;
+  calculation_version: string;
+  reference_data_version: string;
+}
+
+function authHeader(): HeadersInit {
+  const token = getSessionToken();
+  if (!token) throw new ApiError("로그인이 필요합니다.", 401, "AUTH_REQUIRED");
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** 마이페이지 진단 이력이 쓰는 이름. 홈 "최근 분석한 건물"도 결국 같은 데이터라 listDiagnoses()로 재사용한다. */
+export function getMyDiagnoses(): Promise<DiagnosisListResponse> {
+  return apiRequest<DiagnosisListResponse>("/api/v1/diagnoses", { headers: authHeader() });
+}
+
 export async function listDiagnoses(): Promise<DiagnosisSummary[]> {
-  const res = await apiFetch<DiagnosisListResponse>("/api/v1/diagnoses");
+  const res = await getMyDiagnoses();
   return res.diagnoses;
 }
 
 export async function getDiagnosis(diagnosisId: string): Promise<DiagnosisDetail> {
-  return apiFetch<DiagnosisDetail>(`/api/v1/diagnoses/${diagnosisId}`);
+  return apiRequest<DiagnosisDetail>(`/api/v1/diagnoses/${diagnosisId}`, { headers: authHeader() });
 }
 
 /**
@@ -17,5 +54,9 @@ export async function getDiagnosis(diagnosisId: string): Promise<DiagnosisDetail
  * 응답이 정해지면 이 요청 바디를 그대로 채워서 호출하면 된다.
  */
 export async function createDiagnosis(payload: DiagnosisCreateRequest): Promise<DiagnosisDetail> {
-  return apiFetch<DiagnosisDetail>("/api/v1/diagnoses", { method: "POST", body: payload });
+  return apiRequest<DiagnosisDetail>("/api/v1/diagnoses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+    body: JSON.stringify(payload),
+  });
 }

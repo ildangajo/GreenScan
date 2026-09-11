@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import HomePage from "../features/home/HomePage";
+import LoginPage from "../features/auth/LoginPage";
 import AiDiagnosisStartPage from "../features/ai-diagnosis/AiDiagnosisStartPage";
 import RecommendationPage from "../features/recommendation/RecommendationPage";
 import SavedPage from "../features/saved/SavedPage";
@@ -26,6 +27,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/ai-diagnosis" element={<AiDiagnosisStartPage />} />
       <Route path="/news" element={<RecommendationPage />} />
       <Route path="/saved" element={<SavedPage />} />

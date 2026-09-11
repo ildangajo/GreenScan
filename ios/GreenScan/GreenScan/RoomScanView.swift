@@ -96,8 +96,12 @@ struct RoomScanView: View {
                 .padding(.horizontal, 32)
             Spacer()
             Button {
+                // controller.start()를 여기서 바로 부르면 RoomCaptureView가
+                // 아직 생성되기 전이라(SwiftUI가 stage 전환을 다음 런루프에
+                // 반영) controller.captureView가 nil이라 세션이 조용히
+                // 시작을 못 했다(PM 리포트, 2026-09-12 — 화면 까맣게만 나옴).
+                // makeUIView에서 뷰가 실제로 만들어진 직후에 시작하도록 옮겼다.
                 stage = .scanning
-                controller.start()
             } label: {
                 Text("스캔 시작")
                     .font(.system(size: 15, weight: .semibold))
@@ -114,7 +118,11 @@ struct RoomScanView: View {
 
     private var scanningView: some View {
         ZStack(alignment: .bottom) {
+            // UIViewRepresentable은 intrinsicContentSize가 없어서 명시적으로
+            // 꽉 채우는 프레임을 안 주면 크기가 0에 가깝게 잡혀 카메라 화면이
+            // 새까맣게 보인다(PM 리포트, 2026-09-12 — 실기기에서 재현 확인).
             RoomCaptureRepresentable(controller: controller)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
 
             Button {
@@ -391,6 +399,10 @@ private struct RoomCaptureRepresentable: UIViewRepresentable {
         let view = RoomCaptureView(frame: .zero)
         view.delegate = controller
         controller.captureView = view
+        // 뷰가 진짜로 만들어진 이 시점에서 시작해야 captureSession.run()이
+        // 제대로 동작한다 — 인트로 화면 버튼에서 바로 부르면 아직 이 뷰가
+        // 없어서 조용히 무시됐다.
+        controller.start()
         return view
     }
 

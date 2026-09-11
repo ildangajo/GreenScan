@@ -28,10 +28,6 @@ struct HomeView: View {
     @Environment(AuthState.self) private var auth
     @State private var fabOpen = false
     @State private var recentState: RecentBuildingsState = .notLoggedIn
-    // TEMP(2026-09-12): 진단 플로우(홈→AI진단→건물유형→공간입력)를 안 거치고
-    // 라이다 스캔만 바로 켜서 테스트하려고 임시로 둔 버튼/상태. 정식 진입점은
-    // SpaceInputView의 "라이다로 측정하기" 버튼 — 저게 자리잡으면 이건 지운다.
-    @State private var showLidarTest = false
 
     var body: some View {
         NavigationStack {
@@ -87,25 +83,6 @@ struct HomeView: View {
             .toolbar(.hidden, for: .navigationBar)
             .overlay(alignment: .bottomTrailing) {
                 fab
-            }
-            .overlay(alignment: .bottomLeading) {
-                // TEMP: 진단 플로우 없이 라이다 스캔만 바로 테스트하는 버튼.
-                Button {
-                    showLidarTest = true
-                } label: {
-                    Text("🔬 라이다 테스트")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Color.black.opacity(0.7))
-                        .clipShape(Capsule())
-                }
-                .padding(.leading, 16)
-                .padding(.bottom, 96)
-            }
-            .fullScreenCover(isPresented: $showLidarTest) {
-                RoomScanView().environment(DiagnosisFlowState())
             }
         }
         .task(id: auth.sessionToken) {

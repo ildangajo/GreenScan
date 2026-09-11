@@ -35,13 +35,16 @@ struct HomeView: View {
                 searchBar
 
                 GeometryReader { geo in
-                    // 웹의 aspectRatio: "359 / 190" — 좌우 16pt 패딩을 뺀 너비 기준으로
-                    // 같은 비율의 높이를 계산해 히어로와 스페이서에 동일하게 쓴다.
-                    let heroHeight = (geo.size.width - 32) * 190 / 359
+                    // PM 피드백(2026-09-12): 히어로가 검색바를 가리고 "최근 분석한
+                    // 건물" 섹션과도 겹쳐 보인다는 리포트가 있어 웹 원본 비율
+                    // (359:190, 배너가 화면의 절반 가까이 차지)보다 확실히 작게
+                    // 줄였다. 겹침 재발을 막기 위해 .frame 뒤에 .clipped()도 붙여서
+                    // 오버레이 콘텐츠가 프레임 밖으로 새는 걸 강제로 차단한다.
+                    let heroHeight = (geo.size.width - 32) * 130 / 359
 
                     ZStack(alignment: .top) {
                         NavigationLink(destination: AiDiagnosisView()) {
-                            heroBanner
+                            heroBanner(height: heroHeight)
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 16)
@@ -279,7 +282,13 @@ struct HomeView: View {
     // 섹션을 침범할 정도로 잘림). 웹 원본(HomePage.tsx)도 애초에 Spacer가 아니라
     // 절대좌표(top-[13px]/bottom-[38px])로 고정해뒀던 거라, 그 방식 그대로
     // overlay(alignment:)로 옮겨서 바닥 여백을 항상 38pt로 보장한다.
-    private var heroBanner: some View {
+    // height를 파라미터로 직접 받아 ZStack 자체에 .frame(height:)를 강제한다.
+    // 예전엔 외부(NavigationLink 쪽)의 .frame(height:)에만 기대고 heroBanner
+    // 내부는 크기를 전혀 지정하지 않았는데, 이 프로젝트가 타겟팅하는 iOS 27
+    // 베타에서 resizable Image가 든 ZStack이 그 외부 제약을 무시하고 원본
+    // 이미지 크기 기준으로 커져서 검색바까지 침범하는 버그가 있었다
+    // (PM 리포트, 2026-09-12 — 실기기에서 직접 재현 확인).
+    private func heroBanner(height: CGFloat) -> some View {
         ZStack {
             Image("home-hero-house")
                 .resizable()
@@ -287,6 +296,8 @@ struct HomeView: View {
                 .opacity(0.8)
             LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .bottom, endPoint: .top)
         }
+        .frame(height: height)
+        .clipped()
         .overlay(alignment: .topLeading) {
             HStack(spacing: 4) {
                 Text("AI 진단 시작하기").font(.system(size: 12, weight: .semibold))
@@ -297,16 +308,23 @@ struct HomeView: View {
             .foregroundStyle(.primary)
             .clipShape(Capsule())
             .padding(.leading, 10)
-            .padding(.top, 13)
+            .padding(.top, 10)
         }
         .overlay(alignment: .bottomLeading) {
             Text("이런 리모델링\n가능하다고?")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.leading, 13)
-                .padding(.bottom, 38)
+                .padding(.bottom, 14)
         }
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        // 시스템 텍스트 크기(설정 > 손쉬운 사용 > 손쉬운 사용 크게 글씨 등)를 키워둔
+        // 기기에서는 SwiftUI가 .font(.system(size:))로 지정한 값도 확대해버려서,
+        // 38pt 고정 여백 계산이 깨지고 다시 잘려 보인다(PM 리포트, 2026-09-12
+        // 재확인 — 시뮬레이터 기본 설정에서는 재현되지 않았다). 이 배너는 Figma
+        // 픽셀값을 그대로 맞춘 마케팅성 고정 레이아웃이라 시스템 글씨 크기 설정과
+        // 무관하게 항상 같은 크기로 고정한다.
+        .dynamicTypeSize(.large)
     }
 }
 
@@ -370,6 +388,9 @@ private struct RecentBuildingCard: View {
                 .frame(width: 6, height: 12)
                 .padding(.trailing, 14)
         }
+        // heroBanner와 같은 이유로 시스템 글씨 크기 설정과 무관하게 고정 —
+        // 128pt 고정 카드 높이에 맞춘 픽셀 레이아웃이라 텍스트가 커지면 잘린다.
+        .dynamicTypeSize(.large)
     }
 
     private func metricBox(label: String, value: String, valueSize: CGFloat) -> some View {

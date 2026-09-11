@@ -27,9 +27,16 @@ private enum RecentBuildingsState {
 struct HomeView: View {
     @Environment(AuthState.self) private var auth
     @Environment(DiagnosisNavigationPath.self) private var diagnosisNavigationPath
+    @Environment(DiagnosisFlowState.self) private var diagnosisFlow
     @State private var fabOpen = false
     @State private var recentState: RecentBuildingsState = .notLoggedIn
     @State private var navigateToAiDiagnosis = false
+    // 진단 플로우(홈→AI진단→건물유형→공간입력)를 안 거치고 라이다 스캔만 바로
+    // 테스트하는 버튼(PM 요청, 2026-09-12: "라이다 테스트는 그대로 냅둬줘").
+    // 정식 진입점은 SpaceInputView의 "라이다로 측정하기"고, 이 버튼도 같은
+    // 앱 전역 공유 DiagnosisFlowState(GreenScanApp.swift)에 그대로 저장한다 —
+    // 임시 화면일 뿐 저장되는 값 자체는 진짜다.
+    @State private var showLidarTest = false
 
     var body: some View {
         NavigationStack(path: Bindable(diagnosisNavigationPath).path) {
@@ -93,6 +100,24 @@ struct HomeView: View {
             .toolbar(.hidden, for: .navigationBar)
             .overlay(alignment: .bottomTrailing) {
                 fab
+            }
+            .overlay(alignment: .bottomLeading) {
+                Button {
+                    showLidarTest = true
+                } label: {
+                    Text("🔬 라이다 테스트")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color.black.opacity(0.7))
+                        .clipShape(Capsule())
+                }
+                .padding(.leading, 16)
+                .padding(.bottom, 96)
+            }
+            .fullScreenCover(isPresented: $showLidarTest) {
+                RoomScanView().environment(diagnosisFlow)
             }
             .navigationDestination(isPresented: $navigateToAiDiagnosis) {
                 AiDiagnosisView()

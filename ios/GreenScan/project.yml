@@ -21,6 +21,8 @@ targets:
         # 붙이면 이 예외는 지우고 NSExceptionDomains로 좁혀야 한다.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        # RoomPlan(라이다 방 스캔)이 카메라를 쓴다 — 없으면 스캔 화면 진입 시 크래시.
+        NSCameraUsageDescription: 라이다로 방을 스캔해 공간 치수를 자동으로 측정하는 데 카메라가 필요해요.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.greenscan.app

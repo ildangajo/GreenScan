@@ -10,6 +10,7 @@ struct SpaceInputView: View {
 
     @State private var insulationOptions: [ReferenceAPI.OptionItem] = []
     @State private var insulationOptionsLoadFailed = false
+    @State private var showRoomScan = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,6 +18,8 @@ struct SpaceInputView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    roomScanEntry
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("공간 치수").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(hex: "535353"))
                         HStack(spacing: 8) {
@@ -92,6 +95,33 @@ struct SpaceInputView: View {
         .task {
             await loadInsulationOptions()
         }
+        .fullScreenCover(isPresented: $showRoomScan) {
+            RoomScanView().environment(flow)
+        }
+    }
+
+    // docs/lidar-space-capture-proposal.md(2026-09-12): 라이다로 스캔하면
+    // 아래 필드들이 자동으로 채워진다 — 그래도 사용자가 직접 고칠 수 있게
+    // 수동 입력 UI는 그대로 두고, 이 버튼은 값을 "미리 채워주는" 역할만 한다.
+    private var roomScanEntry: some View {
+        Button {
+            showRoomScan = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arkit")
+                Text("라이다로 측정하기")
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Color.brand600)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .background(Color.brand50)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
     }
 
     private func loadInsulationOptions() async {

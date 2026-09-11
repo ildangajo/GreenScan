@@ -87,11 +87,15 @@
 | 즐겨찾기 | DELETE | `/api/v1/favorites/{id}` | 즐겨찾기 삭제 | Y |
 | 지도 | GET | `/api/v1/map/geocode?address=` | 카카오맵으로 좌표 조회 후 서울 지원 지역 여부 판별, `region_id`/`hdd_lookup_key` 반환. 서울 밖이면 `UNSUPPORTED_REGION` | Y |
 
+**구현 완료 (2026-09-11, BE-A)**: 위 5개 API(인증/이력/즐겨찾기/지도) 전부 구현됨 (`app/api/routes/{auth,diagnoses,favorites,map}.py`). `diagnoses/calculate` 결과 저장 API는 "이미 계산된 결과를 명시적으로 저장 요청"하는 형태로 만들어서, BE-C 계산 엔진이 아직 없어도 동작한다.
+
+> ⚠️ **실측으로 확인한 사실**: 카카오 주소 검색 API(`/v2/local/search/address.json`)가 반환하는 `region_1depth_name`은 "서울특별시"가 아니라 **축약형 "서울"**이다(2026-09-11 실호출 검증). 문서 초안 단계에서 정식 명칭으로 짐작해 구현했다면 서울 판별이 항상 실패하는 버그가 됐을 것 — `app/services/kakao_service.py`는 실제 응답값("서울") 기준으로 구현되어 있다.
+
 **정책 확정 필요 (BE-A):**
-- 로그인 세션 전달 방식 — Authorization 헤더 vs httpOnly 쿠키
-- 세션 만료 정책 (TTL, 재로그인 유도 방식)
-- `POST /diagnoses/calculate` 결과를 계정에 저장하는 시점 — 계산 즉시 자동 저장인지, 사용자가 "저장" 버튼을 눌러야 하는지
-- 즐겨찾기 대상 데이터 모델 (진단 결과 1건 vs 주소/지역 단위)
+- 로그인 세션 전달 방식 — Authorization 헤더 vs httpOnly 쿠키 → **구현은 Authorization 헤더로 확정**(`Bearer <token>`), 쿠키 방식은 채택 안 함
+- 세션 만료 정책 (TTL, 재로그인 유도 방식) → **TTL 24시간으로 잠정 채택** (`SESSION_TTL_HOURS` 환경변수, 재로그인 유도 UX는 FE 몫)
+- `POST /diagnoses/calculate` 결과를 계정에 저장하는 시점 — 계산 즉시 자동 저장인지, 사용자가 "저장" 버튼을 눌러야 하는지 — **여전히 미확정.** 현재 구현은 명시적 `POST /diagnoses` 호출로 저장하는 방식만 만들어뒀고, 자동저장 여부는 팀 확인 필요
+- 즐겨찾기 대상 데이터 모델 (진단 결과 1건 vs 주소/지역 단위) → **진단 결과 1건 단위로 잠정 구현** (db-spec.md 9.3 참고, 확정 아님)
 
 ---
 

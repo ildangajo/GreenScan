@@ -79,6 +79,9 @@ jobs:
           assert {"/health", "/health/ready"}.issubset(paths)
           PY
 
+      - name: Run database migrations
+        run: python -m alembic upgrade head
+
       - name: Run tests
         run: python -m pytest -q
 

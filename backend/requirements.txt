@@ -9,3 +9,4 @@ pillow==11.0.0
 python-multipart==0.0.20
 openai==1.58.1
 tenacity==9.0.0
+bcrypt==4.2.1

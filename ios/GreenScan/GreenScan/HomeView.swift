@@ -5,6 +5,16 @@ private let fabMenuItems: [(key: String, label: String)] = [
     ("support", "고객센터"),
 ]
 
+/// "최근 분석한 건물" 섹션의 로딩 상태. 목업이었던 이전 버전과 달리, 이제는
+/// 실제 GET /api/v1/diagnoses 응답을 그대로 반영한다 — 로그인하지 않았거나
+/// (오프라인 데모 계정 포함) 진단 이력이 없으면 빈 상태를 정직하게 보여준다.
+private enum RecentBuildingsState {
+    case notLoggedIn
+    case loading
+    case loaded([RecentBuilding])
+    case failed
+}
+
 /// 웹 버전 frontend/src/features/home/HomePage.tsx의 포팅.
 /// 웹의 핵심 인터랙션 두 가지를 SwiftUI 방식으로 그대로 옮겼다:
 /// 1) 히어로 배너는 고정 배경으로 깔려 있고, "최근 분석한 건물" 시트가 그
@@ -15,7 +25,9 @@ private let fabMenuItems: [(key: String, label: String)] = [
 /// 2) 우하단 + 버튼을 누르면 이용약관/고객센터 원이 위로 갈수록 옅어지는
 ///    색으로 순차 등장하는 스피드다이얼 메뉴.
 struct HomeView: View {
+    @Environment(AuthState.self) private var auth
     @State private var fabOpen = false
+    @State private var recentState: RecentBuildingsState = .notLoggedIn
 
     var body: some View {
         NavigationStack {
@@ -50,15 +62,11 @@ struct HomeView: View {
                                 // 동작에는 영향 없음.
                                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                                     Section {
-                                        VStack(spacing: 16) {
-                                            ForEach(RecentBuilding.samples) { building in
-                                                RecentBuildingCard(building: building)
-                                            }
-                                        }
-                                        .padding(.horizontal, 16)
-                                        .padding(.top, 16)
-                                        .padding(.bottom, 112)
-                                        .background(Color(.systemBackground))
+                                        recentBuildingsContent
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 16)
+                                            .padding(.bottom, 112)
+                                            .background(Color(.systemBackground))
                                     } header: {
                                         recentHeader
                                     }
@@ -74,6 +82,91 @@ struct HomeView: View {
                 fab
             }
         }
+        .task(id: auth.sessionToken) {
+            await loadRecentBuildings()
+        }
+    }
+
+    @ViewBuilder
+    private var recentBuildingsContent: some View {
+        switch recentState {
+        case .notLoggedIn:
+            emptyState(
+                message: auth.isLoggedIn
+                    ? "오프라인 데모 계정은 최근 분석 내역을 불러올 수 없어요."
+                    : "로그인하면 최근 분석한 건물을 볼 수 있어요."
+            )
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+        case .failed:
+            emptyState(message: "최근 분석 내역을 불러오지 못했어요.")
+        case .loaded(let buildings) where buildings.isEmpty:
+            emptyState(message: "아직 분석한 건물이 없어요. AI 진단을 시작해보세요.")
+        case .loaded(let buildings):
+            VStack(spacing: 16) {
+                ForEach(buildings) { building in
+                    RecentBuildingCard(building: building)
+                }
+            }
+        }
+    }
+
+    private func emptyState(message: String) -> some View {
+        Text(message)
+            .font(.system(size: 13))
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+    }
+
+    @MainActor
+    private func loadRecentBuildings() async {
+        guard let token = auth.sessionToken else {
+            recentState = .notLoggedIn
+            return
+        }
+
+        recentState = .loading
+        do {
+            let summaries = try await DiagnosesAPI.list(token: token)
+            let recentSummaries = Array(summaries.prefix(5))
+            let regionNames = (try? await ReferenceAPI.regions())
+                .map { Dictionary(uniqueKeysWithValues: $0.map { ($0.region_id, $0.display_name) }) } ?? [:]
+
+            var buildings: [RecentBuilding] = []
+            for summary in recentSummaries {
+                let detail = try? await DiagnosesAPI.detail(id: summary.diagnosis_id, token: token)
+                let topScenario = detail?.calculation_result.scenarios.min { $0.priority < $1.priority }
+                buildings.append(
+                    RecentBuilding(
+                        id: summary.diagnosis_id,
+                        title: "\(BuildingTypeLabel.label(for: summary.building_type_key)) · \(regionNames[summary.region_id] ?? summary.region_id)",
+                        dateText: Self.formatDate(summary.created_at),
+                        reductionRatePercent: topScenario.map { Int(($0.reduction_rate * 100).rounded()) }
+                    )
+                )
+            }
+            recentState = .loaded(buildings)
+        } catch {
+            recentState = .failed
+        }
+    }
+
+    private static func formatDate(_ isoString: String) -> String {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = isoFormatter.date(from: isoString) ?? {
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            return isoFormatter.date(from: isoString)
+        }()
+        guard let date else { return String(isoString.prefix(10)) }
+
+        let outFormatter = DateFormatter()
+        outFormatter.dateFormat = "yyyy.MM.dd"
+        return outFormatter.string(from: date)
     }
 
     // 헤더는 sticky(pinned)로 뜨는 순간 리스트 흐름에서 분리되므로, 둥근 위쪽
@@ -210,25 +303,15 @@ struct HomeView: View {
     }
 }
 
+/// GET /api/v1/diagnoses(+상세)로 조립한 실제 진단 이력 1건. 사진은 서버에
+/// 원본을 저장하지 않으므로(PRD) 썸네일은 항상 장식용 그라디언트다.
 private struct RecentBuilding: Identifiable {
-    let id = UUID()
+    let id: UUID
     let title: String
-    let date: String
-    let reductionRate: Int
-    let costText: String
-    let thumb: String?
-
-    // 웹 MOCK_RECENT와 동일 — 5~8번은 웹에서도 "스크롤 동작 테스트용"으로 추가된 목업이다.
-    static let samples = [
-        RecentBuilding(title: "서울시 강남구 OO빌딩", date: "2026.07.02", reductionRate: 52, costText: "1,300만원", thumb: "home-building-gangnam"),
-        RecentBuilding(title: "서울시 강북구 OO카페", date: "2024.04.22", reductionRate: 24, costText: "620만원", thumb: "home-building-gangbuk"),
-        RecentBuilding(title: "서울시 강서구 OO빌라", date: "2025.11.12", reductionRate: 21, costText: "430만원", thumb: nil),
-        RecentBuilding(title: "서울시 송파구 OO빌딩", date: "2026.09.09", reductionRate: 60, costText: "1,850만원", thumb: nil),
-        RecentBuilding(title: "서울시 서초구 OO오피스텔", date: "2026.03.15", reductionRate: 38, costText: "980만원", thumb: nil),
-        RecentBuilding(title: "서울시 마포구 OO상가", date: "2025.08.21", reductionRate: 45, costText: "1,120만원", thumb: nil),
-        RecentBuilding(title: "서울시 영등포구 OO빌딩", date: "2024.12.02", reductionRate: 29, costText: "760만원", thumb: nil),
-        RecentBuilding(title: "서울시 성동구 OO주택", date: "2026.01.30", reductionRate: 55, costText: "1,470만원", thumb: nil),
-    ]
+    let dateText: String
+    /// 상세 조회가 실패했거나 시나리오가 없으면 nil — 이 경우 숫자를 지어내지
+    /// 않고 그냥 안 보여준다.
+    let reductionRatePercent: Int?
 }
 
 private struct RecentBuildingCard: View {
@@ -236,15 +319,9 @@ private struct RecentBuildingCard: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            Group {
-                if let thumb = building.thumb {
-                    Image(thumb).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    LinearGradient(colors: [Color(hex: "e4efe9"), Color(hex: "7fae93")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                }
-            }
-            .frame(width: 101, height: 85)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
+            LinearGradient(colors: [Color(hex: "e4efe9"), Color(hex: "7fae93")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .frame(width: 101, height: 85)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(building.title).font(.system(size: 14, weight: .semibold))
@@ -257,19 +334,19 @@ private struct RecentBuildingCard: View {
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Color(hex: "2fcbaa").opacity(0.8))
                         .clipShape(Capsule())
-                    Text(building.date)
+                    Text(building.dateText)
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color(hex: "535353").opacity(0.8))
                 }
 
-                // 웹은 절감률/비용 값 폰트 크기를 다르게 줘서(16px vs 14px)
-                // 절감률 숫자가 더 눈에 띄게 했다 — 그 위계를 그대로 따른다.
                 // Figma 원본 스펙은 label 5px/배지 7px/날짜 8px이었지만, 실제
                 // 기기에서 재보니 너무 작아 읽기 어렵다는 PM 피드백(2026-09-12)에
                 // 따라 가독성 기준으로 키웠다 — 위계(값 > 라벨/배지/날짜)는 유지.
-                HStack(spacing: 6) {
-                    metricBox(label: "에너지 절감률", value: "\(building.reductionRate)%", valueSize: 19)
-                    metricBox(label: "예상 비용", value: building.costText, valueSize: 17)
+                // "예상 비용"은 대응하는 실제 API 필드가 없어(kiwi248,
+                // 2026-09-12) 애초에 없다 — reductionRatePercent도 상세 조회가
+                // 실패했거나 시나리오가 없으면 지어내지 않고 생략한다.
+                if let reductionRatePercent = building.reductionRatePercent {
+                    metricBox(label: "에너지 절감률", value: "\(reductionRatePercent)%", valueSize: 19)
                 }
             }
             Spacer(minLength: 0)
@@ -301,5 +378,5 @@ private struct RecentBuildingCard: View {
 }
 
 #Preview {
-    HomeView()
+    HomeView().environment(AuthState())
 }

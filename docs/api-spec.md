@@ -19,7 +19,7 @@
 
 ## 0.1 확정된 정책값 (이번 설계에 바로 적용)
 
-- Vision 제공자: **OpenAI로 최종 확정**. 단 OpenAI SDK 등 특정 provider SDK에 강결합하지 않고 범용 HTTP(requests)로 호출. 모델명은 `VISION_MODEL` 환경변수로 관리 — 이 스위칭 구조는 시간이 남으면 다른 모델(Claude/Gemini 등)로 성능·비용 벤치마크를 해볼 수 있도록 유지하는 것이며, 최종 제출 기준 제공자는 OpenAI 하나로 고정된다.
+- Vision 제공자: **OpenAI로 최종 확정**. 호출 방식은 **OpenAI 파이썬 SDK 사용으로 재확정**(2026-09-11, PM 합의) — 기존에 검토했던 "범용 HTTP(requests) 직접 호출, provider SDK 강결합 금지" 방침은 철회한다. 최종 제출 기준 제공자가 OpenAI 하나로 고정되는 이상 SDK가 주는 안정성·유지보수 이점이 provider 교체 가능성보다 우선한다고 판단했다. 모델명은 `VISION_MODEL` 환경변수로 관리해 모델 버전 교체 여지는 유지한다.
 - MVP 지원 지역: `seoul`(서울특별시), `gimpo`(경기도 김포시) — 둘 다 기후구역 `central-1`(중부1지역), 같은 HDD 값 사용.
 - `floor_area_m2`: 계산에 사용하지 않음. 가로×세로 크로스체크 + 향후 바닥/지붕 확장용 저장 필드.
 - `wall.insulation_status`: 입력만 받고 이번 계산에는 사용하지 않음(향후 확장용 저장 필드). 벽체 현재 추정 U값은 `construction_year_range`만으로 조회.
@@ -370,17 +370,36 @@ Vision API 호출 전, FE가 로컬에서 먼저 사진 흐림 여부를 판정�
 - `needs_user_confirmation`은 항상 `true`로 응답하게 하고, 서버도 이를 신뢰하지 않고 항상 `true`로 덮어쓴다(모델이 다르게 응답해도 무시).
 - confidence류 수치를 모델이 반환하더라도 서버는 계산 자동 확정에 쓰지 않고 로그/응답에도 노출하지 않는다.
 
-### 5.2 시스템 프롬프트 (초안)
+### 5.2 시스템 프롬프트 (확정, 2026-09-11 BE-B)
 
+초안 대비 변경: 카테고리(window/wall)별로 판단 기준을 분리해 PRD 6.1 촬영
+가이드를 각각 반영했다. 공통 규칙은 그대로 유지하고, 카테고리별 지시문을
+이어붙이는 구조다. 실제 구현은 `backend/app/services/vision_service.py`의
+`_BASE_SYSTEM_PROMPT` + `_CATEGORY_GUIDANCE`를 따른다 — 이 문서는 그 요약이며,
+코드가 바뀌면 이 절도 함께 갱신한다.
+
+**공통 규칙**
 ```
-당신은 노후주택 사전진단 서비스의 사진 분류 보조 도구다.
-당신의 역할은 아래 JSON 스키마에 맞춰 "후보값"만 제시하는 것이다.
-당신은 실제 창호 사양, U값, 단열재 상태, 구조 안전성, 누수 원인을
-확정하지 않는다. 모든 판단은 사용자가 최종 확인한다.
+너는 주택 진단 보조 도구의 사진 분류기다. 창호 또는 벽체 사진 한 장을 보고 후보값만 제시한다.
 
-다음 스키마를 정확히 지켜 JSON만 반환하라. 스키마 밖 필드나
-자유 서술을 추가하지 마라.
+공통 역할 경계:
+- 너는 실제 측정 도구가 아니다. 길이, 면적, 정확한 U값을 추정하지 않는다.
+- 창호 유형(단창/복층창/삼중창)은 후보일 뿐이며 최종 확정이 아니다.
+- 벽체 사진에서는 균열, 누수 흔적 등 이상 흔적의 "가능성"만 후보로 제시한다.
+  실제 구조 안전성, 누수 원인, 단열재 유무를 진단하지 않는다.
+- 사진이 어둡거나, 강한 반사가 있거나, 대상이 화면에서 너무 작게(과도한 원거리)
+  찍혔으면 photo_quality를 retake_required로 표시한다.
+- 판단이 애매하면 unknown/unassessable을 적극적으로 사용한다. 추측으로 값을
+  채우지 않는다.
+- 입력 사진 카테고리는 아래 안내된 값이다. component_type은 이 카테고리와
+  일치해야 하며, 사진이 해당 카테고리로 보이지 않으면 component_type을
+  "unknown"으로 답하고 reason_summary에 그 이유를 적는다.
 
+반드시 주어진 JSON 스키마 형식으로만 응답한다.
+```
+
+응답 JSON 스키마는 6.2절과 동일:
+```
 {
   "assessment_status": "completed" | "unassessable" | "failed",
   "photo_quality": "usable" | "retake_required" | "unknown",
@@ -390,22 +409,24 @@ Vision API 호출 전, FE가 로컬에서 먼저 사진 흐림 여부를 판정�
   "needs_user_confirmation": true,
   "reason_summary": "한국어 2문장 이내 짧은 근거"
 }
-
-규칙:
-- 입력 사진 카테고리는 {category} 이다. component_type은 이 카테고리와
-  일치해야 하며, 사진이 해당 카테고리로 보이지 않으면 "unknown"으로 답하라.
-- 확신이 낮거나 판단이 불가능하면 "unknown" 또는 "unassessable"을 쓰라.
-  추측으로 값을 만들지 마라.
-- 사진이 어둡거나, 과도하게 반사되거나, 너무 멀리서 찍혀 판단이
-  어려우면 photo_quality를 "retake_required"로 답하라.
-- window_type_candidate는 어디까지나 시각적 후보이며 실제 사양
-  확정치가 아님을 항상 전제하라.
 ```
+
+**카테고리별 지시문 (요약)**
+- `window`: usable 조건은 창틀 프레임+유리 면이 함께 보이는 것. 프레임 겹 구조로만
+  window_type_candidate 판단. visible_anomaly_candidate는 항상 not_applicable.
+- `wall`: usable 조건은 의심 부위(균열/누수/곰팡이 등)가 선명하게 보이는 것.
+  visible_anomaly_candidate는 원인 추정 없이 "흔적 존재 가능성"만 판단.
+  window_type_candidate는 항상 not_applicable.
+
+카테고리상 의미 없는 필드(window의 anomaly, wall의 window_type)는 모델이
+프롬프트를 어겨도 서버(`analyze_photo`)가 응답 후처리에서 다시 한 번
+`not_applicable`로 강제한다 — AI 원본 응답만으로 확정하지 않는다는
+PRD 6.2 원칙을 이 경계에도 동일하게 적용한 것이다.
 
 ### 5.3 호출/재시도 정책
 
-- 범용 HTTP(requests) 기반 호출, `VISION_MODEL` 환경변수로 모델 교체 가능하게 구현 (OpenAI SDK 등 특정 provider SDK 강결합 금지 — PM 확정사항).
-- 재시도: 일시적 오류(타임아웃, 5xx)에 한해 `tenacity`로 짧은 재시도 (횟수/backoff 값은 BE-B 확인 필요, 정책 확정 필요).
+- 호출 방식: **OpenAI 파이썬 SDK 사용으로 확정**(2026-09-11, PM 합의 — 0.1절 참고). `backend/app/services/vision_service.py`의 `OpenAI` 클라이언트 구현이 정책과 일치한다.
+- 재시도: 일시적 오류(타임아웃, 연결 오류, 5xx)에 한해 `tenacity`로 재시도한다. **정책 확정(2026-09-11, BE-B): 최대 3회, 1초→8초 지수 백오프.** 4xx(잘못된 요청, 인증 실패 등)는 재시도 대상에서 제외한다.
 - 재시도 후에도 실패하면 `assessment_status: "failed"`로 정규화해 응답 (HTTP 200 유지).
 - 응답이 스키마를 지키지 않으면(JSON 파싱 실패, 허용값 밖 enum 등) 서버가 `failed`로 강제 변환 — 모델의 원본 응답을 그대로 신뢰해 계산에 넘기지 않는다.
 
@@ -425,8 +446,9 @@ Vision API 호출 전, FE가 로컬에서 먼저 사진 흐림 여부를 판정�
 |---|---|---|
 | `construction_year_range` 구간 경계 | BE-C | 별표1 옛 버전 근사 정책, 시행일 기준 확인 필요 |
 | `wall.insulation_status`의 최종 enum/라벨 | PM/BE-C | 계산 미사용이지만 향후 확장 대비 값 확정 필요 |
-| 사진 업로드 최대 용량/허용 포맷 | BE-B | 제안값(10MB, jpeg/png/webp)일 뿐 확정 아님 |
-| Vision 재시도 횟수/timeout | BE-B | tenacity 정책 확정 필요 |
+| ~~사진 업로드 최대 용량/허용 포맷~~ | BE-B | **확정(2026-09-11): 10MB, jpeg/png/webp.** 0.1절 참고 |
+| ~~Vision 재시도 횟수/timeout~~ | BE-B | **확정(2026-09-11): 최대 3회, 1초→8초 지수 백오프.** 5.3절 참고 |
+| ~~Vision 호출 방식 (SDK vs 범용 HTTP)~~ | PM/BE-B | **확정(2026-09-11): OpenAI SDK 사용.** 0.1, 5.3절 참고 |
 | `floor_area_m2` vs `width×depth` 크로스체크 허용 오차 | BE-A/PM | 초과 시 경고만 할지, 차단할지 결정 필요 |
 | `low_e: unknown`에 대한 현재 추정 U값 정책 행 | BE-C | "모름"도 선택 가능한 값이라 반드시 정책 테이블에 행 필요 |
 | `bills/compare`의 실제 비교 로직/단위환산 | BE-C | Should 우선순위, Must 완료 후 착수 |

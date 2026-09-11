@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
+from app.api.routes.health import router as health_router
+
 app = FastAPI(title="GreenScan API")
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+app.include_router(health_router)

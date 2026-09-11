@@ -46,7 +46,8 @@ jobs:
           python - <<'PY'
           from app.main import app
 
-          assert any(route.path == "/health" for route in app.routes)
+          paths = {route.path for route in app.routes}
+          assert {"/health", "/health/db"}.issubset(paths)
           PY
 
       - name: Run tests when present

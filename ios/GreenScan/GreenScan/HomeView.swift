@@ -29,6 +29,7 @@ struct HomeView: View {
     @Environment(DiagnosisNavigationPath.self) private var diagnosisNavigationPath
     @State private var fabOpen = false
     @State private var recentState: RecentBuildingsState = .notLoggedIn
+    @State private var navigateToAiDiagnosis = false
 
     var body: some View {
         NavigationStack(path: Bindable(diagnosisNavigationPath).path) {
@@ -44,7 +45,15 @@ struct HomeView: View {
                     let heroHeight = (geo.size.width - 32) * 160 / 359
 
                     ZStack(alignment: .top) {
-                        NavigationLink(destination: AiDiagnosisView()) {
+                        // ScrollView가 히어로와 같은 영역을 덮고 있어서(아래 참고),
+                        // 탭이 스크롤 제스처 인식에 가로채여 NavigationLink까지
+                        // 안 내려가는 경우가 있었다(2026-09-12, 실기기 리포트: "AI
+                        // 진단 시작하기 눌러도 안 넘어감"). 나머지 화면 전체가 쓰는
+                        // Button + navigationDestination(isPresented:) 패턴으로
+                        // 통일해서 이 모호성을 없앴다.
+                        Button {
+                            navigateToAiDiagnosis = true
+                        } label: {
                             heroBanner(height: heroHeight)
                         }
                         .buttonStyle(.plain)
@@ -54,7 +63,7 @@ struct HomeView: View {
                         ScrollView {
                             VStack(spacing: 0) {
                                 // 히어로와 같은 높이의 투명 스페이서. allowsHitTesting(false)로
-                                // 이 구간의 탭은 아래 히어로(NavigationLink)로 그대로 전달된다.
+                                // 이 구간의 탭은 아래 히어로(Button)로 그대로 전달된다.
                                 Color.clear
                                     .frame(height: heroHeight)
                                     .allowsHitTesting(false)
@@ -84,6 +93,9 @@ struct HomeView: View {
             .toolbar(.hidden, for: .navigationBar)
             .overlay(alignment: .bottomTrailing) {
                 fab
+            }
+            .navigationDestination(isPresented: $navigateToAiDiagnosis) {
+                AiDiagnosisView()
             }
         }
         .task(id: auth.sessionToken) {

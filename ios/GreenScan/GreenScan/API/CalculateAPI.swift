@@ -70,8 +70,10 @@ enum CalculateAPI {
             let current_u_value_wall: String
             let target_u_value: String
             let hdd: String
-            // calc-v2(docs/result-screen-v9-design.md) — ⚠️ 이 세 값은 원문
-            // 미대조 잠정 추정치("-unverified" 접미사로 표시됨).
+            // calc-v2(docs/result-screen-v9-design.md) — 2026-09-12에 절반
+            // 검증됨: construction_year_range가 2016_2018/2018_present면
+            // 실제 고시 원문 대조 완료("envelope-v2-verified"), 2011_2013/
+            // 2013_2016이면 여전히 미대조 잠정 추정치("-unverified" 접미사).
             let current_u_value_ceiling: String
             let current_u_value_floor: String
             let current_u_value_door: String

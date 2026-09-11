@@ -227,7 +227,7 @@
 
 **calc-v2 확장 (2026-09-12, PRD v8.3 — 결과 화면 리디자인, `docs/result-screen-v9-design.md` 참고)**: 천장/바닥/문 열손실, 에너지 효율 레벨(LV.1~5), AI 한 줄 평가, 누수 우선순위를 추가했다.
 - `space.door_area_m2`(선택, 기본값 2.0㎡) 신규 — 라이다로 스캔했으면 실측 문 면적, 아니면 기본값.
-- ⚠️ 천장/바닥/문 현재 U값(`current_ceiling/floor/door_u_value_policies`)은 벽체·창호와 달리 **원문 미대조 잠정 추정치**다(`seed_envelope_u_values.py` 주석 참고, policy_version에 `-unverified` 접미사). 에너지 효율 레벨 밴드 임계값도 잠정치(`efficiency-band-estimate-v1`) — 실제 데이터 분포 확인 후 조정 필요.
+- 천장/바닥/문 현재 U값(`current_ceiling/floor/door_u_value_policies`)은 2026-09-12에 절반 검증됐다 — `2016_2018`/`2018_present` 두 구간은 실제 개정고시 원문(제2015-1108호/제2017-881호 별표1, `seed_construction_year_wall_u.py`가 벽체에 쓴 것과 같은 고시)으로 대조 확인해 `policy_version`이 `envelope-v2-verified`로 바뀌었다. `2011_2013`/`2013_2016` 두 구간은 여전히 **원문 미대조 잠정 추정치**로 남아있다(`seed_envelope_u_values.py` 주석 참고, `policy_version`에 `-unverified` 접미사 유지) — 같은 응답 필드라도 `construction_year_range`에 따라 두 값 중 하나가 온다. 에너지 효율 레벨 밴드 임계값은 아직 잠정치(`efficiency-band-estimate-v1`) — 실제 데이터 분포 확인 후 조정 필요.
 - `total_heat_loss_kwh`가 이제 5개 부위(창호/벽체/천장/바닥/문) 합계라 `reduction_rate`의 분모가 커져서, calc-v1 대비 같은 입력이어도 절감률 수치 자체가 작게 나온다(더 정직한 비율 — v1은 창호+벽체만 분모라 부풀려져 있었음).
 
 **Request**
@@ -279,9 +279,9 @@
     "current_u_value_wall": "u-wall-v1",
     "target_u_value": "target-u-v1",
     "hdd": "hdd-seed-v1",
-    "current_u_value_ceiling": "envelope-estimate-v1-unverified",
-    "current_u_value_floor": "envelope-estimate-v1-unverified",
-    "current_u_value_door": "envelope-estimate-v1-unverified"
+    "current_u_value_ceiling": "envelope-v2-verified",
+    "current_u_value_floor": "envelope-v2-verified",
+    "current_u_value_door": "envelope-v2-verified"
   },
   "baseline": {
     "window_heat_loss_kwh": 812.4,

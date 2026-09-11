@@ -43,11 +43,14 @@ enum CalculateAPI {
         /// CalculateRequest를 그대로 confirmed_input(JSONB, 자유 형식)에 담아
         /// POST /diagnoses로 저장하므로, 여기 끼워두면 계산 자체엔 영향 없이
         /// 설문 응답이 진단 이력에 같이 저장된다 — PM 지시(2026-09-12).
+        ///
+        /// v2 설문 개편(2026-09-12): 건물종류/공간/연식/벽상태/창호유형은
+        /// 이제 설문에서 곧바로 building/space/window/wall 실제 계산 필드로
+        /// 들어가므로 여기 다시 넣지 않는다 — "불편한 점"만 계산에 영향을
+        /// 주면 안 된다고 팀이 합의(±15% 임의 보정 금지)해서 별도 스냅샷으로
+        /// 남긴다.
         struct Survey: Encodable {
-            let building_category: String
             let discomforts: [String]
-            let condition_ratings: [String: Double]
-            let preferred_remodels: [String]
         }
 
         let building: Building

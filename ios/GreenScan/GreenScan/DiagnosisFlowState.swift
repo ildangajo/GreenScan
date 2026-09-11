@@ -49,17 +49,14 @@ final class DiagnosisFlowState {
     var lowE = "unknown"
     var anomalyConfirmed = "none_observed"
 
-    // SurveyView(AI 분석하기 전 5단계 설문, PM 요청 2026-09-12)에서 채움.
-    // 계산 API 계약(CalculateRequest)엔 대응하는 필드가 없어 계산 자체엔
-    // 안 쓰이지만, ResultView.makeCalculateRequest()가 이 값들을
-    // CalculateRequest.survey에 실어서 confirmed_input(JSONB, 자유 형식)에
-    // 함께 저장한다 — DB에 반영해달라는 PM 지시(2026-09-12)에 따라
-    // POST /diagnoses/calculate에는 무해하게 무시되고(실서버로 확인함)
-    // POST /diagnoses(저장)에는 그대로 스냅샷으로 남는다.
-    var surveyBuildingCategory = "" // "detached" | "multi" | "other"
+    // SurveyView(AI 분석하기 전 설문, PM 지시로 2026-09-12에 실측 연계형으로
+    // 개편)에서 채움. v2부터는 설문 답 대부분이 "참고용 별도 저장"이 아니라
+    // building/space/window/wall 실제 계산 필드에 곧바로 반영된다(설문 =
+    // 사전 필터, 뒤 화면들이 그 값을 미리 선택된 상태로 보여주고 사용자가
+    // 다시 확인/수정할 수 있다). 계산에 영향을 주면 안 된다고 팀이 합의한
+    // "불편한 점"만 여전히 confirmed_input 스냅샷 전용으로 남는다(±15% 같은
+    // 임의 보정 금지 — 2026-09-12 팀 리뷰 결론).
     var surveyDiscomforts: Set<String> = []
-    var surveyConditionRatings: [String: Double] = [:] // 0...1, 항목키 -> 값(나쁨0~좋음1)
-    var surveyPreferredRemodels: Set<String> = []
 
     /// 결과 화면에서 "진단 종료"를 누르면 홈으로 돌아가면서 호출한다 —
     /// 다음 진단이 이전 값을 이어받지 않도록 초기 상태로 되돌린다.
@@ -81,10 +78,7 @@ final class DiagnosisFlowState {
         windowTypeConfirmed = "double"
         lowE = "unknown"
         anomalyConfirmed = "none_observed"
-        surveyBuildingCategory = ""
         surveyDiscomforts = []
-        surveyConditionRatings = [:]
-        surveyPreferredRemodels = []
     }
 }
 

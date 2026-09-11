@@ -64,6 +64,9 @@ struct AiDiagnosisView: View {
         .task {
             await loadYearOptions()
         }
+        .onAppear {
+            prefillFromSurvey()
+        }
     }
 
     private func loadYearOptions() async {
@@ -72,6 +75,24 @@ struct AiDiagnosisView: View {
             yearOptionsLoadFailed = false
         } catch {
             yearOptionsLoadFailed = true
+        }
+    }
+
+    /// SurveyView(사전 설문)가 이미 flow.address/constructionYearRange를
+    /// 채웠을 수 있다 — 이 화면의 address/selectedYear는 로컬 @State라 flow
+    /// 변화를 자동으로 따라가지 않으므로(다른 화면들과 달리 직접 바인딩이
+    /// 아님) 처음 나타날 때 한 번 복사해온다. regionId까지 이미 있으면
+    /// (드묾 — 보통 설문은 주소 텍스트만 주고 geocode는 여기서 함)
+    /// "확인"을 또 누르지 않아도 되게 addressStatus도 같이 채운다.
+    private func prefillFromSurvey() {
+        if address.isEmpty, !flow.address.isEmpty {
+            address = flow.address
+        }
+        if selectedYear == nil, !flow.constructionYearRange.isEmpty {
+            selectedYear = flow.constructionYearRange
+        }
+        if addressStatus == .idle, !flow.regionId.isEmpty {
+            addressStatus = .ok(region: flow.regionId)
         }
     }
 

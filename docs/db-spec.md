@@ -614,14 +614,14 @@ Ref: calculation_result_message_policies.calculation_policy_id > calculation_pol
 
 | 항목 | 왜 확정이 필요한가 | 영향 테이블 |
 |---|---|---|
-| 준공연도 구간의 실제 경계와 양끝 포함 규칙 | PRD는 정책화된 구간을 요구하지만 시작·종료 연도 규칙은 없음 | `construction_year_ranges`, `current_wall_u_value_policies` |
+| ~~준공연도 구간의 실제 경계와 양끝 포함 규칙~~ | **부분 확정(2026-09-11)**: 마루건축사사무소 "단열재의 두께 기준 변천사(1980~2016)" 정리글에서 고시 원문 대조. `2016_2023`(2016.7~2023.2), `2023_present`(2023.2~) 2구간만 시드 — **2016년 7월 이전은 여전히 미해결.** 그 이전 고시는 U값을 직접 명시하지 않고 단열재 두께로만 규정해서 환산에 재료별 열전도율 가정이 필요해 정확도가 떨어짐. 사용자 선택지에 아예 없으므로 그 이전 준공 건물은 이번 범위에서 진단 불가 | `construction_year_ranges`, `current_wall_u_value_policies` |
 | 기존 단열 상태의 enum·사용자 라벨 | PRD는 입력과 조회 조건만 지정 | `insulation_statuses`, `current_wall_u_value_policies` |
-| 현재 창호 U값의 실제 정책값과 Low-E `모름` 행 | PRD는 계산 조건만 지정 | `current_window_u_value_policies` |
-| 현재 벽체 U값의 실제 정책값과 근거 | PRD는 준공연도 구간+단열 상태 조건만 지정 | `current_wall_u_value_policies` |
-| 데모 지원 지역의 구체적 목록, 지역 키, 기후구역 | PRD는 소수 지역만 지원한다고 했고 목록은 정책 데이터로 남김 | `supported_regions`, `climate_zones` |
-| HDD 값·출처 문서·버전 | 검증된 HDD만 사용해야 함 | `hdd_values`, `reference_documents` |
-| 목표 U값이 기후구역 범위인지 지원 지역 범위인지 | PRD는 둘 중 하나를 허용하지만 데이터 적용 정책은 미정 | `target_u_value_policies` |
-| 창호·외기 접촉 벽체별 실제 별표 식별자, 조건, U값, 고시번호·시행일 | PRD는 원문 확인을 요구하며 두 부위를 같은 별표로 가정하지 말라고 함 | `target_u_value_policies`, `reference_documents` |
+| ~~현재 창호 U값의 실제 정책값과 Low-E `모름` 행~~ | **확정(2026-09-11, BE-C)**: 별표4(창 및 문의 단열성능) 기준, 금속재·열교차단재 미적용·공기층 12mm를 노후 창호 근사치로 채택. `app/db/seed/seed_target_u_values.py` 참고 | `current_window_u_value_policies` |
+| ~~현재 벽체 U값의 실제 정책값과 근거~~ | **부분 확정(2026-09-11)**: 위와 같은 출처로 2구간×`insulation_status=good`만 시드(0.260 / 0.240, 중부지역·공동주택외 기준, 창호와 동일하게 "공동주택 외" 값을 노후주택 근사치로 채택). **`insulation_status=none`/`partial`은 여전히 미해결** — 실제 근거 수치를 못 찾아 임의로 만들지 않음. 이 두 값으로 조회하면 `REFERENCE_DATA_MISSING`이 정상 동작 | `current_wall_u_value_policies` |
+| ~~데모 지원 지역의 구체적 목록, 지역 키, 기후구역~~ | **확정**: `seoul`, `gimpo` — 기후구역은 `jungbu-2`(중부2지역)로 정정(2026-09-11, 이전에 `central-1`/중부1지역으로 잘못 기록돼 있었음 — 별표1 비고 원문 대조 결과 서울특별시는 중부2지역 명시, 김포시도 중부1 예외목록에 없어 중부2 해당) | `supported_regions`, `climate_zones` |
+| ~~HDD 값·출처 문서·버전~~ | **잠정 확정(2026-09-11, BE-C)**: KOSIS 냉난방도일 통계(에너지경제연구원)에서 2023년 연간 난방도일 2,380.1 도일 확보, seoul/gimpo 공통 적용. **⚠️ 이 값은 전국 평균이며 서울 전용 관측치가 아님** — KOSIS 조회 화면에 지역 구분 옵션이 없음을 직접 확인함. 서울 전용 HDD(기상청 기후정보포털 등)를 찾으면 교체 필요 — 여전히 완전히 해결된 건 아님 | `hdd_values`, `reference_documents` |
+| ~~목표 U값이 기후구역 범위인지 지원 지역 범위인지~~ | **확정**: 기후구역(`climate_zone_key`) 범위로 시드함 — 별표1 자체가 기후구역 단위 표이므로 | `target_u_value_policies` |
+| ~~창호·외기 접촉 벽체별 실제 별표 식별자, 조건, U값, 고시번호·시행일~~ | **확정(2026-09-11)**: 국토교통부고시 제2023-104호(2023.2.28. 시행) 별표1(외벽)·별표4(창호) 원문 대조 완료. 중부2지역·외기직접·공동주택/공동주택외 조합만 시드, 그 외 조건(외기간접, 층간바닥 등)은 아직 없음 | `target_u_value_policies`, `reference_documents` |
 | 같은 부위·기후 조건에서 기준 원문에 여러 적용 조건 행이 있을 때의 선택 규칙 | PRD는 조건 보존을 요구하지만 사용자 입력 또는 우선순위 규칙을 지정하지 않음 | `target_u_value_policies`, 계산 엔진 |
 | 2024년 기준을 데모 비교 버전으로 고정할지 여부와 선택 기준 | 사용할 수 있다고만 했으며 최신 법정 기준 주장 금지 | 모든 기준 정책·출처 문서 |
 | 여러 기준 버전이 존재할 때 MVP가 어떤 버전을 선택하는지 | 버전 보존은 요구하지만 활성·선택 정책은 명시되지 않음 | U값 정책, HDD, 계산 정책 |

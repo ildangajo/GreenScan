@@ -28,7 +28,7 @@
 ## 0.1 확정된 정책값 (이번 설계에 바로 적용)
 
 - Vision 제공자: **OpenAI로 최종 확정**. 호출 방식은 **OpenAI 파이썬 SDK 사용으로 재확정**(2026-09-11, PM 합의) — 기존에 검토했던 "범용 HTTP(requests) 직접 호출, provider SDK 강결합 금지" 방침은 철회한다. 최종 제출 기준 제공자가 OpenAI 하나로 고정되는 이상 SDK가 주는 안정성·유지보수 이점이 provider 교체 가능성보다 우선한다고 판단했다. 모델명은 `VISION_MODEL` 환경변수로 관리해 모델 버전 교체 여지는 유지한다.
-- MVP 지원 지역: `seoul`(서울특별시), `gimpo`(경기도 김포시) — 둘 다 기후구역 `central-1`(중부1지역), 같은 HDD 값 사용.
+- MVP 지원 지역: `seoul`(서울특별시), `gimpo`(경기도 김포시) — 둘 다 기후구역 `jungbu-2`(중부2지역), 같은 HDD 값 사용. **정정(2026-09-11, BE-C 원문 대조)**: 이전에 `central-1`(중부1지역)로 적혀있었으나, 「건축물의 에너지절약설계기준」(국토교통부고시 제2023-104호) 별표1 비고에 서울특별시가 명시적으로 중부2지역으로 분류되어 있고, 경기도 김포시도 중부1지역 예외목록에 없어 기본값인 중부2지역에 해당함을 원문 확인함. 검증 없이 적힌 값이었던 것으로 보임.
 - `floor_area_m2`: 계산에 사용하지 않음. 가로×세로 크로스체크 + 향후 바닥/지붕 확장용 저장 필드.
 - `wall.insulation_status`: 입력만 받고 이번 계산에는 사용하지 않음(향후 확장용 저장 필드). 벽체 현재 추정 U값은 `construction_year_range`만으로 조회.
 - **원본 사진 저장 여부: 저장 안 함으로 재확정.** 게스트 세션+S3 저장 방식 검토가 있었으나(2026-09-11), 최종적으로 PRD v7 원칙대로 무상태·원본 즉시 폐기 유지로 확정. 아래 0.3 참고.
@@ -114,16 +114,16 @@
       "region_id": "seoul",
       "display_name": "서울특별시",
       "hdd_lookup_key": "seoul",
-      "climate_zone": "central-1",
-      "climate_zone_description": "중부1지역",
+      "climate_zone": "jungbu-2",
+      "climate_zone_description": "중부2지역",
       "supported": true
     },
     {
       "region_id": "gimpo",
       "display_name": "경기도 김포시",
       "hdd_lookup_key": "gimpo",
-      "climate_zone": "central-1",
-      "climate_zone_description": "중부1지역",
+      "climate_zone": "jungbu-2",
+      "climate_zone_description": "중부2지역",
       "supported": true
     }
   ]

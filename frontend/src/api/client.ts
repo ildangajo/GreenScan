@@ -5,11 +5,11 @@
  * - 베이스 URL은 frontend/.env의 VITE_API_BASE_URL을 쓴다(README/백엔드 전달
  *   문서 기준 로컬 개발 주소는 http://3.38.160.29:8000). .env가 없으면
  *   http://localhost:8000로 fallback.
- * - 로그인 세션 토큰은 localStorage에 저장하고 매 요청에 Authorization 헤더로
- *   실어 보낸다(백엔드가 "authorization" 헤더 하나로만 인증하는 구조,
- *   OpenAPI 스키마 기준 Bearer 프리픽스 여부는 문서화돼 있지 않아 토큰
- *   원문을 그대로 보낸다 — 백엔드가 "Bearer " 프리픽스를 요구하면 여기만
- *   고치면 된다).
+ * - 로그인 세션 토큰은 localStorage에 저장하고 매 요청에
+ *   `Authorization: Bearer <token>` 헤더로 실어 보낸다. 백엔드
+ *   (backend/app/api/deps.py get_current_session)가 "Bearer " 프리픽스를
+ *   엄격히 검사해서 없으면 프리픽스 자체가 없다는 이유로 401을 던진다 —
+ *   토큰이 있어도 이 프리픽스가 빠지면 로그인 안 한 것과 똑같이 실패한다.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -59,7 +59,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (auth) {
     const token = getSessionToken();
-    if (token) headers["authorization"] = token;
+    if (token) headers["authorization"] = `Bearer ${token}`;
   }
 
   const res = await fetch(`${BASE_URL}${path}`, {

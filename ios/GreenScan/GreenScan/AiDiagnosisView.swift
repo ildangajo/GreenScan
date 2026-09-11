@@ -4,11 +4,13 @@ import SwiftUI
 /// Figma node 18:141 실측값(색상/치수) 그대로 옮겼다. 주소 확인은
 /// GET /api/v1/map/geocode 실연동(2026-09-12) — 이 엔드포인트는 로그인이
 /// 필요해서(api-spec.md 1.1) 세션 토큰이 없으면(비로그인 또는 오프라인 데모
-/// 계정) 호출하지 않고 안내만 보여준다. 진단 플로우(공간치수~결과)는 아직
-/// 연결 안 함.
+/// 계정) 호출하지 않고 안내만 보여준다. "분석 시작하기"를 누르면 주소/연도를
+/// DiagnosisFlowState에 저장하고 BuildingSpaceSelectView(건물유형/대표공간)로
+/// 이어간다.
 struct AiDiagnosisView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AuthState.self) private var auth
+    @Environment(DiagnosisFlowState.self) private var flow
 
     @State private var photoCount = 0
     @State private var address = ""
@@ -17,6 +19,7 @@ struct AiDiagnosisView: View {
     @State private var selectedYear: String? = nil
     @State private var yearOptions: [ReferenceAPI.ConstructionYearRangeOption] = []
     @State private var yearOptionsLoadFailed = false
+    @State private var navigateToSpaceFlow = false
 
     enum AddressStatus: Equatable {
         case idle, checking, ok(region: String), error(String)
@@ -48,6 +51,9 @@ struct AiDiagnosisView: View {
         }
         .background(Color(.systemBackground))
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $navigateToSpaceFlow) {
+            BuildingSpaceSelectView()
+        }
         .task {
             await loadYearOptions()
         }
@@ -206,7 +212,11 @@ struct AiDiagnosisView: View {
 
     private var startButton: some View {
         Button {
-            // TODO: 진단 플로우 연결 보류 중 — 나중에 /start(건물유형 선택)로 이어붙인다.
+            guard case .ok(let region) = addressStatus, let selectedYear else { return }
+            flow.address = address.trimmingCharacters(in: .whitespaces)
+            flow.regionId = region
+            flow.constructionYearRange = selectedYear
+            navigateToSpaceFlow = true
         } label: {
             Text("분석 시작하기")
                 .font(.system(size: 15, weight: .semibold))
@@ -251,5 +261,5 @@ struct AiDiagnosisView: View {
 }
 
 #Preview {
-    AiDiagnosisView().environment(AuthState())
+    AiDiagnosisView().environment(AuthState()).environment(DiagnosisFlowState())
 }

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analysis, auth, reference
+from app.api.routes import analysis, auth, diagnoses, favorites, reference
 from app.core.config import settings
 
 from app.api.routes.health import router as health_router
@@ -18,6 +18,8 @@ app.add_middleware(
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(reference.router, prefix="/api/v1")
+app.include_router(diagnoses.router, prefix="/api/v1")
+app.include_router(favorites.router, prefix="/api/v1")
 
 
 app.include_router(health_router)

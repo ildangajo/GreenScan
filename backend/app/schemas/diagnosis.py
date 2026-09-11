@@ -11,7 +11,15 @@ from pydantic import BaseModel, model_validator
 
 
 class InputSource(str, Enum):
-    """lidar는 PRD상 예약값일 뿐 이번 MVP API가 받지 않는다 (api-spec.md 2.4)."""
+    """공간 치수의 출처. 출처와 무관하게 확정된 면적은 같은 계산식을 사용한다."""
+
+    manual = "manual"
+    user_corrected = "user_corrected"
+    lidar = "lidar"
+
+
+class ConfirmedInputSource(str, Enum):
+    """LiDAR만으로 확정할 수 없는 창호·벽체 복합 입력의 출처."""
 
     manual = "manual"
     user_corrected = "user_corrected"
@@ -67,7 +75,7 @@ class WindowInput(BaseModel):
     total_area_m2: float
     window_type: WindowType
     low_e: LowE
-    input_source: InputSource
+    input_source: ConfirmedInputSource
 
     @model_validator(mode="after")
     def check_positive_area(self) -> "WindowInput":
@@ -80,7 +88,7 @@ class WallInput(BaseModel):
     exterior_total_area_m2: float
     insulation_status: InsulationStatus
     visible_anomaly_confirmed: VisibleAnomalyConfirmed
-    input_source: InputSource
+    input_source: ConfirmedInputSource
 
     @model_validator(mode="after")
     def check_positive_area(self) -> "WallInput":

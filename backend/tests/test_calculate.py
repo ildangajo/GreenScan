@@ -11,6 +11,7 @@
 - hdd(seoul) = 2380.1
 """
 
+import copy
 import os
 
 import pytest
@@ -70,6 +71,22 @@ def test_calculate_returns_baseline_and_scenarios(client):
     assert len(body["scenarios"]) == 3
     scenario_ids = {s["scenario_id"] for s in body["scenarios"]}
     assert scenario_ids == {"window_upgrade", "wall_upgrade", "combined_upgrade"}
+
+
+def test_lidar_and_manual_sources_return_the_same_calculation(client):
+    """프론트가 확정한 수치가 같으면 입력 출처는 계산 결과에 영향을 주지 않는다."""
+    manual_payload = _valid_payload()
+    manual_payload["space"]["input_source"] = "manual"
+
+    lidar_payload = copy.deepcopy(manual_payload)
+    lidar_payload["space"]["input_source"] = "lidar"
+
+    manual_response = client.post("/api/v1/diagnoses/calculate", json=manual_payload)
+    lidar_response = client.post("/api/v1/diagnoses/calculate", json=lidar_payload)
+
+    assert manual_response.status_code == 200
+    assert lidar_response.status_code == 200
+    assert lidar_response.json() == manual_response.json()
 
 
 def test_scenario_priority_sorted_by_reduction_descending(client):
